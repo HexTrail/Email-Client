@@ -22,7 +22,9 @@ function Signin() {
         <h1 className="text-3xl font-bold mb-6">Signin / Signup</h1>
         <form className="flex flex-col items-center justify-center gap-4 max-h-[80vh] max-w-full border w-md h-fit border-gray-300 rounded-md p-10 m-2">
           <div className="flex items-center justify-center gap-2 w-full h-fit flex-wrap">
-            <label htmlFor="phone" className="self-start">Enter Your Phone Number: </label>
+            <label htmlFor="phone" className="self-start">
+              Enter Your Phone Number:{" "}
+            </label>
             <input
               type="text"
               id="phone"
@@ -33,13 +35,16 @@ function Signin() {
             />
           </div>
           <div className="m-2">
-            <a href="https://www.twilio.com/console" target="_blank" className="text-blue-500 w-full m-auto">Get OTP</a>
-            
+            <a
+              href="https://www.twilio.com/console"
+              target="_blank"
+              className="text-blue-500 w-full m-auto"
+            >
+              Get OTP
+            </a>
           </div>
           <div className="flex flex-col items-center justify-center w-full h-fit gap-2">
-            <label htmlFor="otp" >
-              Enter OTP
-            </label>
+            <label htmlFor="otp">Enter OTP</label>
             <input
               type="text"
               inputMode="numeric"
@@ -53,30 +58,30 @@ function Signin() {
           </div>
           <button
             type="submit"
-            className="bg-blue-700 text-white p-2 rounded-md m-2"
+            className="bg-blue-700 text-white p-2 rounded-md mt-2"
             onClick={(e) => sendData(e)}
           >
             Submit
           </button>
           <button
             type="button"
-            className="text-blue-500 p-2 rounded-md m-2"
+            className="text-blue-500 p-2 rounded-md"
             onClick={() => setOpen(true)}
           >
             Terms of Service
           </button>
-          
+
         </form>
       </div>
-      {open && (
-        <TermsModal
-          onClose={() => setOpen(false)}
-          onAgree={() => {
-            // save acceptance, then close
-            setOpen(false);
-          }}
-        />
-      )}
+          {open && (
+              <TermsModal
+                onClose={() => setOpen(false)}
+                onAgree={() => {
+                  // save acceptance, then close
+                  setOpen(false);
+                }}
+              />
+          )}
     </>
   );
 }

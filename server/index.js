@@ -19,13 +19,15 @@ const inputSchema = new z.object({
     otp: z.string().min(6).max(6)
 })
 
-app.post('/auth/signup', (req, res) => {
+app.post('/auth/signin', (req, res) => {
     const {phone, otp} = req.body
     const validationResult = inputSchema.safeParse({ phone, otp });
 
     if (!validationResult.success) {
         return res.status(400).json({ success: false, error: validationResult.error.flatten() });
     }
+
+    
 })
 
 const emailInbox = [];
