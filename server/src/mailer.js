@@ -7,10 +7,10 @@
 // a different SMTP host (a real provider, or another instance of
 // this same server on another machine) nothing else changes.
 
-require("dotenv").config();
-const nodemailer = require("nodemailer");
+import 'dotenv'
+import nodemailer from 'nodemailer'
 
-const SMTP_PORT = parseInt(process.env.SMTP_PORT || "2525", 10);
+const SMTP_PORT = parseInt(process.env.SMTP_PORT, 10);
 
 const transporter = nodemailer.createTransport({
   host: "localhost",
@@ -34,4 +34,4 @@ async function sendMail(opts) {
   });
 }
 
-module.exports = { sendMail };
+export {sendMail}

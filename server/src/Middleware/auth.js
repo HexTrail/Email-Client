@@ -9,6 +9,7 @@ function authMiddleware(req, res, next){
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
     const userid = mongoose.Types.ObjectId(decoded.userid)
     req.userid = userid
+    req.userPhone = String(decoded.phone)
     next()
 }
 

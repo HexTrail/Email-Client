@@ -15,13 +15,13 @@
 //
 // Run: node smtp-server.js   (listens on SMTP_PORT, default 2525)
 
-require("dotenv").config();
-const { SMTPServer } = require("smtp-server");
-const { simpleParser } = require("mailparser");
-const storage = require("./storage");
+import 'dotenv'
+import { SMTPServer } from 'smtp-server';
+import {simpleParser} from 'mailparser'
 
-const DOMAIN = process.env.DOMAIN || "phonemail.test";
-const SMTP_PORT = parseInt(process.env.SMTP_PORT || "2525", 10);
+
+const DOMAIN = process.env.DOMAIN;
+const SMTP_PORT = parseInt(process.env.SMTP_PORT, 10);
 
 function isOurDomain(address) {
   return String(address).toLowerCase().endsWith("@" + DOMAIN.toLowerCase());
@@ -29,6 +29,7 @@ function isOurDomain(address) {
 
 const server = new SMTPServer({
   // No TLS cert needed for local dev — plaintext is fine on localhost.
+  port: SMTP_PORT,
   secure: false,
   authOptional: true, // accept mail without SMTP AUTH (fine for local/dev)
   disabledCommands: ["STARTTLS"],
@@ -80,10 +81,4 @@ const server = new SMTPServer({
   },
 });
 
-server.on("error", (err) => {
-  console.error("[smtp] server error:", err);
-});
-
-server.listen(SMTP_PORT, () => {
-  console.log(`[smtp] listening on port ${SMTP_PORT} for @${DOMAIN}`);
-});
+export default server
