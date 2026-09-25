@@ -8,7 +8,8 @@ import { sendMail } from './mailer.js'
 import mongoose from 'mongoose'
 import Users from './Models/Users.js'
 import authMiddleware from "./Middleware/auth.js";
-import bcrypt from "bcryptjs"
+import bcrypt from "bcrypt"
+import jwt from "jsonwebtoken"
 
 mongoose.connect(process.env.MONGODB_URL).catch(err => console.log("Error connecting to the database.", err));
 
@@ -30,11 +31,10 @@ const signinSchema = z.object({
 });
 
 const verifySchema = z.object({
-    phone: z.string().min(10).max(10),
     otp: z.string().min(6).max(6)
 });
 
-app.post('/auth/signin', async (req, res) => {
+app.post('/api/auth/signin', async (req, res) => {
     const userData = req.body
     const validationResult = signinSchema.safeParse(userData);
 
@@ -43,6 +43,7 @@ app.post('/auth/signin', async (req, res) => {
     }
 
     const existingUser = await Users.findOne({ phone: userData.phone });
+    let user = existingUser;
     if (existingUser) {
         const isPasswordValid = await bcrypt.compare(userData.password, existingUser.password);
         if (!isPasswordValid) {
@@ -50,12 +51,12 @@ app.post('/auth/signin', async (req, res) => {
         }
     } else {
         const hashedPassword = await bcrypt.hash(userData.password, 10);
-        const newUser = await Users.create({
+        user = await Users.create({
             phone: userData.phone,
             username: userData.username,
             password: hashedPassword
         })
-        if (!newUser) {
+        if (!user) {
             return res.status(400).json({ success: false, message: "Failed to create user" });
         }
     }
@@ -64,28 +65,26 @@ app.post('/auth/signin', async (req, res) => {
         username: userData.username
     }, process.env.JWT_SECRET, { expiresIn: '1h' });
     res.cookie('token', token, { httpOnly: true, secure: true, sameSite: 'strict' });
-    return res.status(201).json({ success: true, message: "User created successfully", userid: newUser._id }); x
+    return res.status(200).json({ success: true, message: "Signed in successfully", userid: user._id });
 
     // createVerification(phone);
     // return res.status(200).json({ success: true, message: "OTP sent successfully" });
 })
 
-app.post('/auth/verify-otp', async (req, res) => {
-    const { phone, otp } = req.body;
-    const validationResult = verifySchema.safeParse({ phone, otp });
+app.post('/api/auth/verify-otp', async (req, res) => {
+    const otp = req.body.otp;
+    const validationResult = verifySchema.safeParse({ otp });
 
     if (!validationResult.success) {
         return res.status(400).json({ success: false, error: validationResult.error });
     }
 
     try {
-        // const result = await verifyOtp(phone, otp);
-        if (otp == process.env.DEFAULT_OTP)
-            if (result.status === "approved") {
-                return res.status(200).json({ success: true, message: "OTP verified successfully" });
-            } else {
-                return res.status(400).json({ success: false, message: "Invalid OTP" });
-            }
+        if (otp === process.env.DEFAULT_OTP) {
+            return res.status(200).json({ success: true, message: "OTP verified successfully" });
+        }
+
+        return res.status(400).json({ success: false, message: "Invalid OTP" });
     } catch (error) {
         console.error("[auth] failed to verify OTP:", error);
         return res.status(500).json({ success: false, message: "Internal server error" });

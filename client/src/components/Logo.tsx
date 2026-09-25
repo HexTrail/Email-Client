@@ -8,15 +8,16 @@ export default function PhoneMailIcon(props: {
   MailClassName?: string;
 }) {
   return (
-    <div className={`relative w-12 h-fit p-2 ${props.className}`}>
+    <div className={`relative block min-h-12 w-12 m-2 ${props.className}`}>
       <FiSmartphone
-        className={`absolute left-0 top-0 z-0 ${props.className}`}
-        size={props.PhoneSize || 60}
+        className={`absolute left-0 top-0 h-16 ${props.className}`}
+        size={props.PhoneSize || 40}
       />
 
       <BsEnvelopeFill
-        className={`absolute right-1/4 bottom-1/4 z-10 ${props.MailClassName}`}
-        size={props.MailSize || 28}
+        className={`absolute right-1/4 bottom-0 z-10 ${props.MailClassName}`}
+        size={props.MailSize || 24}
+        color="blue"
       />
     </div>
   );

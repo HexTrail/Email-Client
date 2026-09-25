@@ -16,13 +16,12 @@ function Signin() {
       return;
     }
     if (password.length < 8) {
-      alert("Please enter a valid password (at least 6 characters)");
+      alert("Please enter a valid password (at least 8 characters)");
       return;
     }
     try {
       await signIn(phone, username, password);
-
-      navigate("/dashboard");
+      navigate("/verify");
     } catch (error) {
       console.error(error);
     }
@@ -31,11 +30,11 @@ function Signin() {
     <>
       <div className="flex flex-col items-center justify-center h-screen w-screen gap-2">
         <PhoneMailIcon />
-        <h1 className="text-3xl font-bold mb-2">Signin / Signup</h1>
+        <h1 className="text-3xl font-semibold">Signin</h1>
         <form className="flex flex-col items-center justify-center gap-4 max-h-[80vh] max-w-full border w-md h-fit border-gray-300 rounded-md p-10 m-2">
-          <div className="flex items-center justify-center gap-2 w-full h-fit flex-wrap">
-            <label htmlFor="phone" className="self-start">
-              Enter Your Phone Number:{" "}
+          <div className="flex flex-col items-center justify-center gap-2 w-full h-fit">
+            <label htmlFor="phone">
+              Phone Number:{" "}
             </label>
             <input
               type="text"
@@ -46,9 +45,9 @@ function Signin() {
               onChange={(e) => setPhone(e.target.value)}
             />
           </div>
-          <div className="flex items-center justify-center gap-2 w-full h-fit flex-wrap">
-            <label htmlFor="username" className="self-start">
-              Enter Your Username:{" "}
+          <div className="flex flex-col items-center justify-center gap-2 w-full h-fit">
+            <label htmlFor="username">
+              Username:{" "}
             </label>
             <input
               type="text"
@@ -59,9 +58,9 @@ function Signin() {
               onChange={(e) => setUsername(e.target.value)}
             />
           </div>
-          <div className="flex items-center justify-center gap-2 w-full h-fit flex-wrap">
-            <label htmlFor="password" className="self-start">
-              Enter Your Password:{" "}
+          <div className="flex flex-col items-center justify-center gap-2 w-full h-fit">
+            <label htmlFor="password">
+              Password:{" "}
             </label>
             <input
               type="password"
@@ -73,20 +72,9 @@ function Signin() {
             />
           </div>
           
-          <div className="flex flex-col items-center justify-center w-full h-fit gap-2">
-            <label htmlFor="otp">Enter OTP</label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              placeholder="Enter Password"
-              className="border-2 border-gray-400 rounded-md p-2 max-w-full min-w-9/12"
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
           <button
             type="submit"
-            className="bg-blue-700 text-white p-2 rounded-md mt-2"
+            className="bg-blue-700 text-white p-2 rounded-md mt-2 cursor-pointer hover:bg-blue-800"
             onClick={(e) => sendData(e)}
           >
             Submit

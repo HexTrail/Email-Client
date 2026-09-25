@@ -10,14 +10,14 @@ import axios from "axios";
 
 type User = {
   id: string;
-  email: string;
-  name: string;
+  phone: string;
+  username: string;
 };
 
 type AuthContextType = {
   user: User | null;
   loading: boolean;
-  signIn: (email: string, username: string, password: string) => Promise<void>;
+  signIn: (phone: string, username: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -41,7 +41,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     async function checkSession() {
       try {
         //replace with axios.
-        const response = await axios.get("/api/me", {
+        const response = await axios.get("http://localhost:5000/api/me", {
           withCredentials: true,
         });
 
@@ -64,22 +64,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   async function signIn(
-    email: string,
+    phone: string,
     username: string,
     password: string
   ): Promise<void> {
-    const response = await axios.post("/api/auth/signin", {
-      email,
+    const response = await axios.post("http://localhost:5000/api/auth/signin", {
+      phone,
       username: username || undefined,
       password,
     });
 
-    if (!response.status || response.status !== 200) {
-      throw new Error("Invalid email or password");
+    if (response.status !== 200 && response.status !== 201) {
+      throw new Error("Invalid phone number or password");
     }
-    const data = response.data;
-
-    setUser(data.user);
   }
 
   async function signOut(): Promise<void> {

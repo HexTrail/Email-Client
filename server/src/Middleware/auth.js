@@ -10,6 +10,8 @@ function authMiddleware(req, res, next){
     const userid = mongoose.Types.ObjectId(decoded.userid)
     req.userid = userid
     req.userPhone = String(decoded.phone)
+    req.userEmail = String(decoded.phone + "@phonemail.test")
+    req.username = String(decoded.username)
     next()
 }
 
