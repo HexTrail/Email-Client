@@ -5,7 +5,7 @@
 // (for the Gmail-style web client, and for Drafts/Spam/Trash on
 // both clients).
 
-const { Schema, model } = require("mongoose");
+import { Schema, model } from 'mongoose'
 
 const AttachmentSchema = new Schema(
   {

@@ -34,7 +34,7 @@ const verifySchema = z.object({
     otp: z.string().min(6).max(6)
 });
 
-app.post('/auth/signin', async(req, res) => {
+app.post('/auth/signin', async (req, res) => {
     const userData = req.body
     const validationResult = signinSchema.safeParse(userData);
 
@@ -42,23 +42,30 @@ app.post('/auth/signin', async(req, res) => {
         return res.status(400).json({ success: false, error: validationResult.error });
     }
 
-    const hashedPassword = await bcrypt.hash(userData.password, 10);
-    const newUser = await Users.create({
+    const existingUser = await Users.findOne({ phone: userData.phone });
+    if (existingUser) {
+        const isPasswordValid = await bcrypt.compare(userData.password, existingUser.password);
+        if (!isPasswordValid) {
+            return res.status(400).json({ success: false, message: "Invalid password" });
+        }
+    } else {
+        const hashedPassword = await bcrypt.hash(userData.password, 10);
+        const newUser = await Users.create({
+            phone: userData.phone,
+            username: userData.username,
+            password: hashedPassword
+        })
+        if (!newUser) {
+            return res.status(400).json({ success: false, message: "Failed to create user" });
+        }
+    }
+    const token = jwt.sign({
         phone: userData.phone,
-        username: userData.username,
-        password: hashedPassword
-    })
-    if(newUser){
-        const token = jwt.sign({ 
-            phone: userData.phone, 
-            username: userData.username 
-        }, process.env.JWT_SECRET, { expiresIn: '1h' });
-        res.cookie('token', token, { httpOnly: true, secure: true, sameSite: 'strict' });
-        return res.status(201).json({ success: true, message: "User created successfully", userid: newUser._id });
-    }
-    else{
-        return res.status(400).json({ success: false, message: "Failed to create user" });
-    }
+        username: userData.username
+    }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    res.cookie('token', token, { httpOnly: true, secure: true, sameSite: 'strict' });
+    return res.status(201).json({ success: true, message: "User created successfully", userid: newUser._id }); x
+
     // createVerification(phone);
     // return res.status(200).json({ success: true, message: "OTP sent successfully" });
 })
@@ -85,12 +92,18 @@ app.post('/auth/verify-otp', async (req, res) => {
     }
 });
 
+app.post('/api/signout', authMiddleware, (req, res) => {
+    res.clearCookie('token', { httpOnly: true, secure: true, sameSite: 'strict' });
+    return res.status(200).json({ success: true, message: "Signed out successfully" });
+})
+
 //endpoint to send email using smtp server created.
-app.post('/send-email', authMiddleware, async (req, res) => {
+app.post('/api/send-email', authMiddleware, async (req, res) => {
     const { to, subject, text } = req.body;
+    const from = req.userPhone + "@phonemail.test"
 
     try {
-        await sendMail(to, subject, text);
+        await sendMail({ from, to, subject, text });
         return res.status(200).json({ success: true, message: "Email sent successfully" });
     } catch (error) {
         console.error("[email] failed to send email:", error);
@@ -99,7 +112,7 @@ app.post('/send-email', authMiddleware, async (req, res) => {
 });
 
 // Endpoint to get user details
-app.get('/user', authMiddleware, async (req, res) => {
+app.get('/api/user', authMiddleware, async (req, res) => {
     const { phone } = req.userPhone; // Assuming the middleware adds the user info to req.userPhone
 
     try {
@@ -115,7 +128,7 @@ app.get('/user', authMiddleware, async (req, res) => {
 });
 
 //endpoint to get all emails received.
-app.get('/emails', authMiddleware, async (req, res) => {
+app.get('/api/emails', authMiddleware, async (req, res) => {
     const { phone } = req.userPhone; // Assuming the middleware adds the user info to req.userPhone
 
     try {
@@ -128,7 +141,7 @@ app.get('/emails', authMiddleware, async (req, res) => {
 });
 
 //endpoint to get all emails exchanged with different people grouped together so that they can be displayed as conversations in the frontend.
-app.get('/conversations', authMiddleware, async (req, res) => {
+app.get('/api/conversations', authMiddleware, async (req, res) => {
     const { phone } = req.userPhone; // Assuming the middleware adds the user info to req.userPhone
 
     try {
