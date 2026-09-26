@@ -1,0 +1,27 @@
+.phonemail-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #173f36;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.phonemail-logo-mark {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  place-items: center;
+  border-radius: 9px;
+  color: #fff;
+  background: #1d6755;
+  font-family: Georgia, serif;
+  font-size: 23px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.phonemail-logo-name { line-height: 1; }
