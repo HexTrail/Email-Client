@@ -81,4 +81,4 @@ const MessageSchema = new Schema(
 // Fast "get this conversation's messages in order" query.
 MessageSchema.index({ conversation: 1, date: 1 });
 
-module.exports = model("Message", MessageSchema);
+export default model("Message", MessageSchema);

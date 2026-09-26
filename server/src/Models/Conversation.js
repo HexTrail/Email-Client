@@ -12,7 +12,7 @@
 //   1:1 messages to an individual from that group — matching the
 //   task doc's rule exactly.
 
-const { Schema, model } = require("mongoose");
+import {Schema, model} from 'mongoose'
 
 const ConversationSchema = new Schema(
   {
@@ -51,4 +51,4 @@ ConversationSchema.index(
 // Fast "list my conversations, newest first" query.
 ConversationSchema.index({ participants: 1, lastMessageAt: -1 });
 
-module.exports = model("Conversation", ConversationSchema);
+export default model("Conversation", ConversationSchema);

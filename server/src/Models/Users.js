@@ -3,8 +3,8 @@ import mongoose from "mongoose";
 const userSchema = new mongoose.Schema({
     phone: {
         required: true,
-        type: Number, 
-
+        type: String,
+        trim: true,
     },
     username: {
         type: String, 

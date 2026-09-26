@@ -40,8 +40,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     async function checkSession() {
       try {
-        //replace with axios.
-        const response = await axios.get("http://localhost:5000/api/me", {
+        const response = await axios.get("/api/user", {
           withCredentials: true,
         });
 
@@ -68,11 +67,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     username: string,
     password: string
   ): Promise<void> {
-    const response = await axios.post("http://localhost:5000/api/auth/signin", {
-      phone,
-      username: username || undefined,
-      password,
-    });
+    const response = await axios.post(
+      "/api/auth/signin",
+      {
+        phone,
+        username: username || undefined,
+        password,
+      },
+      { withCredentials: true }
+    );
 
     if (response.status !== 200 && response.status !== 201) {
       throw new Error("Invalid phone number or password");

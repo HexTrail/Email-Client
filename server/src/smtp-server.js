@@ -10,26 +10,77 @@
 //   2. RCPT TO        — who it's for (we reject anyone outside our
 //                        own domain, so this can't be abused as an
 //                        open relay for spam)
-//   3. DATA           — the raw email; we parse it and hand it to
-//                        storage.js
+//   3. DATA           — parse the raw email and persist it to MongoDB
 //
-// Run: node smtp-server.js   (listens on SMTP_PORT, default 2525)
+// src/index.js starts this listener after MongoDB connects.
 
-import 'dotenv'
+import 'dotenv/config';
 import { SMTPServer } from 'smtp-server';
-import {simpleParser} from 'mailparser'
+import { simpleParser } from 'mailparser';
+import Conversation from './Models/Conversation.js';
+import Message from './Models/Message.js';
 
 
-const DOMAIN = process.env.DOMAIN;
-const SMTP_PORT = parseInt(process.env.SMTP_PORT, 10);
+const DOMAIN = (process.env.DOMAIN || 'phonemail.test').trim().toLowerCase();
 
-function isOurDomain(address) {
-  return String(address).toLowerCase().endsWith("@" + DOMAIN.toLowerCase());
+function isOurDomain(address, domain = DOMAIN) {
+  return typeof address === 'string' && address.toLowerCase().endsWith(`@${domain}`);
 }
 
-const server = new SMTPServer({
+function phoneFromAddress(address) {
+  return address.slice(0, address.lastIndexOf('@'));
+}
+
+async function persistMessage({ from, to, subject, text, html, date }) {
+  const sender = from.toLowerCase();
+  const recipients = to.map((address) => address.toLowerCase());
+  const participants = [...new Set([sender, ...recipients].map(phoneFromAddress))].sort();
+  const messageDate = date || new Date();
+  let conversation;
+
+  if (participants.length === 2) {
+    const participantsKey = participants.join('_');
+    conversation = await Conversation.findOneAndUpdate(
+      { participantsKey },
+      { $setOnInsert: { participants, participantsKey, isGroup: false } },
+      { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true }
+    );
+  } else {
+    conversation = await Conversation.create({
+      participants,
+      isGroup: recipients.length > 1,
+    });
+  }
+
+  const message = await Message.create({
+    conversation: conversation._id,
+    from: sender,
+    to: recipients,
+    subject,
+    text,
+    html,
+    date: messageDate,
+  });
+
+  await Conversation.updateOne(
+    { _id: conversation._id },
+    {
+      $set: {
+        lastMessageAt: messageDate,
+        lastMessagePreview: (text || '').slice(0, 200),
+        lastMessageFrom: phoneFromAddress(sender),
+      },
+    }
+  );
+
+  return message;
+}
+
+export function createSmtpServer({ domain = DOMAIN, deliverMessage = persistMessage } = {}) {
+  const acceptedDomain = domain.trim().toLowerCase();
+
+  return new SMTPServer({
   // No TLS cert needed for local dev — plaintext is fine on localhost.
-  port: SMTP_PORT,
   secure: false,
   authOptional: true, // accept mail without SMTP AUTH (fine for local/dev)
   disabledCommands: ["STARTTLS"],
@@ -39,46 +90,53 @@ const server = new SMTPServer({
   // the outside world — it should only ever deliver phonemail.test
   // mailboxes to each other.
   onRcptTo(address, session, callback) {
-    if (!isOurDomain(address.address)) {
-      return callback(
-        new Error(
-          `550 relaying to ${address.address} denied — this server only delivers @${DOMAIN}`
-        )
-      );
+    if (!isOurDomain(address.address, acceptedDomain)) {
+      const error = new Error(`Only @${acceptedDomain} recipients are accepted`);
+      error.responseCode = 550;
+      return callback(error);
     }
-    // Implicitly create the mailbox the first time it's addressed.
-    storage.ensureMailbox(address.address);
     callback();
   },
 
   onMailFrom(address, session, callback) {
-    // Accept any sender. For a closed local system this is fine;
-    // if you ever expose this publicly, add real auth here.
+    if (!isOurDomain(address.address, acceptedDomain)) {
+      const error = new Error(`Only @${acceptedDomain} sender addresses are accepted`);
+      error.responseCode = 550;
+      return callback(error);
+    }
     callback();
   },
 
   // Called with a stream of the raw RFC 5322 email once DATA finishes.
   onData(stream, session, callback) {
     simpleParser(stream)
-      .then((parsed) => {
-        const toList = (session.envelope.rcptTo || []).map((r) => r.address);
-        storage.addMessage({
-          from: parsed.from ? parsed.from.text : session.envelope.mailFrom.address,
-          to: toList,
-          subject: parsed.subject,
-          text: parsed.text,
-          html: parsed.html || "",
+      .then(async (parsed) => {
+        const from = parsed.from?.value?.[0]?.address || session.envelope.mailFrom.address;
+        const to = (session.envelope.rcptTo || []).map((recipient) => recipient.address);
+        if (!to.length || !isOurDomain(from, acceptedDomain)) {
+          throw new Error('Message has an invalid sender or no recipients');
+        }
+
+        await deliverMessage({
+          from,
+          to,
+          subject: parsed.subject || '',
+          text: parsed.text || '',
+          html: parsed.html || '',
+          date: parsed.date,
         });
-        console.log(
-          `[smtp] delivered "${parsed.subject || "(no subject)"}" to ${toList.join(", ")}`
-        );
+        console.log(`[smtp] delivered "${parsed.subject || '(no subject)'}" to ${to.join(', ')}`);
         callback();
       })
-      .catch((err) => {
-        console.error("[smtp] failed to parse incoming mail:", err);
-        callback(new Error("450 could not process message"));
+      .catch((error) => {
+        console.error('[smtp] failed to process message:', error);
+        error.responseCode = error.responseCode || 451;
+        callback(error);
       });
   },
 });
 
-export default server
+}
+
+const server = createSmtpServer();
+export default server;

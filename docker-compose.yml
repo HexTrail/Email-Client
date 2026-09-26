@@ -1,0 +1,39 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: phonemail-mongo
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    ports:
+      - "27017:27017"
+
+  backend:
+    build: ./server
+    container_name: phonemail-backend
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/phonemail
+      - SMTP_PORT=2525
+      - PORT=5000
+      - DOMAIN=phonemail.test
+    env_file:
+      - ./server/.env
+    ports:
+      - "5000:5000"
+      - "2525:2525"
+      - "3000:3000"
+
+  frontend:
+    build: ./client
+    container_name: phonemail-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+volumes:
+  mongo-data:

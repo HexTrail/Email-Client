@@ -1,18 +1,24 @@
 import mongoose from "mongoose"
 import jwt from "jsonwebtoken"
 
-function authMiddleware(req, res, next){
-    const token = req.cookies.token
-    if(!token){
-        return res.json("Not logged in. Proceed to login")
+function authMiddleware(req, res, next) {
+    const token = req.cookies?.token;
+    if (!token) {
+        return res.status(401).json({ success: false, message: "Authentication required" });
     }
-    const decoded = jwt.verify(token, process.env.JWT_SECRET)
-    const userid = mongoose.Types.ObjectId(decoded.userid)
-    req.userid = userid
-    req.userPhone = String(decoded.phone)
-    req.userEmail = String(decoded.phone + "@phonemail.test")
-    req.username = String(decoded.username)
-    next()
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = {
+            id: decoded.userid,
+            phone: String(decoded.phone),
+            email: `${decoded.phone}@phonemail.test`,
+            name: String(decoded.username),
+        };
+        return next();
+    } catch {
+        return res.status(401).json({ success: false, message: "Invalid or expired token" });
+    }
 }
 
 export default authMiddleware
