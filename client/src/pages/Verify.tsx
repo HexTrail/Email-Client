@@ -1,7 +1,8 @@
 import { useState } from "react";
-import PhoneMailIcon from "../components/Logo.tsx";
+import PhonemailLogo from "../components/PhonemailLogo.tsx";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../Context/AuthContext.tsx";
+import "./AuthPages.css";
 
 function Verify() {
   const [otp, setOtp] = useState("");
@@ -31,12 +32,13 @@ function Verify() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen w-screen gap-2">
-      <PhoneMailIcon />
-      <h1 className="text-3xl font-bold mb-2">Verify your phone</h1>
-
-      <form onSubmit={sendData} className="flex flex-col items-center justify-center gap-4 max-h-[80vh] max-w-full border w-md h-fit border-gray-300 rounded-md p-10 m-2">
-        <p>Enter the code sent to {pendingPhone || "your phone"}.</p>
+    <main className="auth-screen">
+      <section className="auth-panel">
+        <PhonemailLogo />
+        <p className="auth-eyebrow">ONE MORE STEP</p>
+        <h1>Verify your phone</h1>
+        <p className="auth-description">Enter the code sent to {pendingPhone || "your phone"}.</p>
+        <form onSubmit={sendData} className="auth-form">
         <input
           type="text"
           value={otp}
@@ -48,18 +50,20 @@ function Verify() {
           autoComplete="one-time-code"
           aria-label="Verification code"
           placeholder="Verification code"
-          className="w-56 h-14 text-center text-xl font-semibold rounded-md border-2 border-neutral-300 focus:border-emerald-600 outline-none"
+          className="auth-input auth-code-input"
+          required
         />
-        {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+        {error && <p role="alert" className="auth-error">{error}</p>}
 
         <button
           type="submit"
-          className="bg-blue-700 text-white p-2 rounded-md mt-2"
+          className="auth-submit"
         >
           Submit
         </button>
       </form>
-    </div>
+      </section>
+    </main>
   );
 }
 
