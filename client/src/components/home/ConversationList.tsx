@@ -36,7 +36,7 @@ export default function ConversationList({
     const title = conversation.isGroup ? conversation.groupName : otherParticipants;
     return `${title} ${conversation.lastMessagePreview}`.toLowerCase().includes(search.toLowerCase());
   });
-  const folderLabel = folders.find((folder) => folder.id === activeFolder)?.label ?? "Inbox";
+  const folderLabel = folders.find((folder) => folder.id === activeFolder)?.label ?? "Conversations";
 
   return (
     <section className="conversation-pane" aria-label="Conversation list">
@@ -50,7 +50,7 @@ export default function ConversationList({
         </button>
       </div>
 
-      {activeFolder === "inbox" ? (
+      {activeFolder === "conversations" ? (
         <>
           <div className="list-meta"><span>{conversations.length} conversations</span><span>Most recent</span></div>
           <div className="conversation-list">

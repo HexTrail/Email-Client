@@ -1,4 +1,4 @@
-import { FiInbox, FiSend, FiShield, FiStar, FiTrash2 } from "react-icons/fi";
+import { FiMessageCircle, FiShield, FiTrash2 } from "react-icons/fi";
 
 export type Conversation = {
   _id: string;
@@ -10,12 +10,10 @@ export type Conversation = {
   lastMessageFrom: string;
 };
 
-export type Folder = "inbox" | "starred" | "sent" | "spam" | "trash";
+export type Folder = "conversations" | "spam" | "trash";
 
-export const folders: { id: Folder; label: string; icon: typeof FiInbox }[] = [
-  { id: "inbox", label: "Inbox", icon: FiInbox },
-  { id: "starred", label: "Starred", icon: FiStar },
-  { id: "sent", label: "Sent", icon: FiSend },
+export const folders: { id: Folder; label: string; icon: typeof FiMessageCircle }[] = [
+  { id: "conversations", label: "Conversations", icon: FiMessageCircle },
   { id: "spam", label: "Spam", icon: FiShield },
   { id: "trash", label: "Trash", icon: FiTrash2 },
 ];

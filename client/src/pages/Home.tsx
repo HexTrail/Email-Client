@@ -19,7 +19,7 @@ function Home() {
   const navigate = useNavigate();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [activeFolder, setActiveFolder] = useState<Folder>("inbox");
+  const [activeFolder, setActiveFolder] = useState<Folder>("conversations");
   const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState(false);
   const [mobileFoldersOpen, setMobileFoldersOpen] = useState(false);
@@ -87,6 +87,8 @@ function Home() {
           search={search}
           onSearchChange={setSearch}
           onSignOut={() => void handleSignOut()}
+          mobileFoldersOpen={mobileFoldersOpen}
+          onToggleMobileFolders={() => setMobileFoldersOpen(!mobileFoldersOpen)}
         />
         <div className="mail-content">
           <ConversationList
@@ -102,7 +104,7 @@ function Home() {
             onRetry={() => void loadConversations()}
           />
           <ConversationDetail
-            conversation={activeFolder === "inbox" ? selectedConversation : undefined}
+            conversation={activeFolder === "conversations" ? selectedConversation : undefined}
             currentUserPhone={user?.phone}
             onBack={() => setSelectedId(null)}
           />

@@ -71,7 +71,7 @@
 .profile-menu-user span { overflow: hidden; color: var(--muted); font-size: 9px; text-overflow: ellipsis; }
 .profile-menu > button { width: 100%; padding: 9px 10px; border: 0; border-radius: 6px; color: #4f5b56; background: transparent; cursor: pointer; text-align: left; font-size: 11px; }
 .profile-menu > button:hover { color: #a53c31; background: #fcf1ee; }
-.mobile-brand, .mobile-menu-button { display: none; }
+.mobile-header-brand, .mobile-folder-toggle, .mobile-compose-button { display: none; }
 
 .mail-content { display: grid; min-height: 0; flex: 1; grid-template-columns: minmax(320px, 42%) minmax(0, 1fr); }
 .conversation-pane { display: flex; min-height: 0; flex-direction: column; border-right: 1px solid var(--line); background: #fff; }
@@ -157,8 +157,12 @@
   .mail-sidebar.is-mobile-open .folder-link .folder-count { display: inline; }
   .mobile-nav-backdrop { position: fixed; inset: 62px 0 0; z-index: 4; border: 0; background: #19272038; }
   .topbar { min-height: 62px; gap: 10px; padding-inline: 14px; }
+  .mobile-header-brand { display: flex; align-items: center; gap: 8px; }
   .phonemail-logo.mobile-brand { display: inline-flex; gap: 7px; font-size: 12px; }
   .mobile-brand .phonemail-logo-mark { width: 25px; height: 25px; flex-basis: 25px; border-radius: 7px; font-size: 19px; }
+  .mobile-folder-toggle { display: grid; width: 30px; height: 30px; place-items: center; border: 0; border-radius: 7px; color: #64706c; background: transparent; cursor: pointer; }
+  .mobile-folder-toggle:hover { color: var(--green); background: #f0f5f1; }
+  .mobile-folder-toggle svg { width: 17px; height: 17px; }
   .search-box { width: auto; min-width: 0; flex: 1; height: 35px; gap: 7px; padding-inline: 9px; }
   .search-box kbd, .profile-name, .profile-button > svg { display: none; }
   .topbar-actions { gap: 0; }
@@ -171,8 +175,9 @@
   .conversation-detail { display: none; }
   .conversation-pane:has(.conversation-row.is-selected) + .conversation-detail { display: flex; position: fixed; inset: 62px 0 0; z-index: 3; }
   .conversation-detail:not(:has(.conversation-row.is-selected)) { display: none; }
-  .mobile-menu-button { position: fixed; right: 16px; bottom: 16px; z-index: 4; display: grid; width: 43px; height: 43px; place-items: center; border: 0; border-radius: 50%; color: white; background: var(--green); box-shadow: 0 4px 12px #123d3238; }
-  .mobile-menu-button svg { width: 18px; height: 18px; }
+  .mobile-compose-button { position: fixed; right: 16px; bottom: 16px; z-index: 4; display: grid; width: 48px; height: 48px; place-items: center; border: 0; border-radius: 50%; color: white; background: var(--green); box-shadow: 0 4px 12px #123d3238; cursor: pointer; }
+  .mobile-compose-button:hover { background: #124b40; }
+  .mobile-compose-button .compose-plus { font-size: 25px; }
   .detail-header { min-height: 64px; padding-inline: 16px; }
   .detail-back { display: grid; margin-left: -8px; }
   .thread-body { padding: 28px 16px; }

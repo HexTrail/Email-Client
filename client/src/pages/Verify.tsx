@@ -3,10 +3,21 @@ import PhoneMailIcon from "../components/Logo.tsx";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
+//Typescript declaration for process.env.DEFAULT_OTP, since Vite doesn't automatically provide types for environment variables
+declare const process: {
+  env: {
+    DEFAULT_OTP?: string;
+  };
+};
 const OTP_LENGTH = 6;
 
 function Verify() {
-  const [digits, setDigits] = useState(Array(OTP_LENGTH).fill("512974"));
+  const defaultOtp = process.env.DEFAULT_OTP;
+  const [digits, setDigits] = useState(() =>
+    defaultOtp && new RegExp(`^\\d{${OTP_LENGTH}}$`).test(defaultOtp)
+      ? [...defaultOtp]
+      : Array(OTP_LENGTH).fill("")
+  );
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
   const navigate = useNavigate();

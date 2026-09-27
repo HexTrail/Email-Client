@@ -1,4 +1,4 @@
-import { FiChevronLeft, FiChevronRight, FiMenu, FiX } from "react-icons/fi";
+import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import PhonemailLogo from "../PhonemailLogo.tsx";
 import { folders, type Folder } from "./homeTypes.ts";
 
@@ -41,8 +41,8 @@ export default function MailSidebar({
           {!collapsed && <span>New message</span>}
         </button>
 
-        <nav className="folder-nav" aria-label="Mail folders">
-          {!collapsed && <p className="nav-caption">MAILBOX</p>}
+        <nav className="folder-nav" aria-label="Conversation views">
+          {!collapsed && <p className="nav-caption">YOUR SPACE</p>}
           {folders.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -53,7 +53,7 @@ export default function MailSidebar({
             >
               <Icon aria-hidden="true" />
               {!collapsed && <span>{label}</span>}
-              {!collapsed && id === "inbox" && conversationCount > 0 && (
+              {!collapsed && id === "conversations" && conversationCount > 0 && (
                 <span className="folder-count">{conversationCount}</span>
               )}
             </button>
@@ -64,7 +64,7 @@ export default function MailSidebar({
           <div className="sidebar-bottom">
             <div className="storage-note">
               <span className="storage-dot" />
-              <div><strong>You're all caught up</strong><small>Your inbox is in good shape.</small></div>
+              <div><strong>You're all caught up</strong><small>Your conversations are in good shape.</small></div>
             </div>
             <span className="sidebar-version">PHONEMAIL · PERSONAL</span>
           </div>
@@ -74,12 +74,8 @@ export default function MailSidebar({
       {mobileOpen && (
         <button className="mobile-nav-backdrop" onClick={onToggleMobile} aria-label="Close folders" />
       )}
-      <button
-        className="mobile-menu-button"
-        onClick={onToggleMobile}
-        aria-label={mobileOpen ? "Close folders" : "Open folders"}
-      >
-        {mobileOpen ? <FiX /> : <FiMenu />}
+      <button className="mobile-compose-button" title="New message" aria-label="New message">
+        <span className="compose-plus">+</span>
       </button>
     </>
   );

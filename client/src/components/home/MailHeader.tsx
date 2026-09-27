@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FiMoreHorizontal, FiSearch } from "react-icons/fi";
+import { FiMenu, FiMoreHorizontal, FiSearch, FiX } from "react-icons/fi";
 import PhonemailLogo from "../PhonemailLogo.tsx";
 import { initials } from "./homeUtils.ts";
 
@@ -11,6 +11,8 @@ type MailHeaderProps = {
   search: string;
   onSearchChange: (value: string) => void;
   onSignOut: () => void;
+  mobileFoldersOpen: boolean;
+  onToggleMobileFolders: () => void;
 };
 
 export default function MailHeader({
@@ -21,13 +23,25 @@ export default function MailHeader({
   search,
   onSearchChange,
   onSignOut,
+  mobileFoldersOpen,
+  onToggleMobileFolders,
 }: MailHeaderProps) {
   const [profileOpen, setProfileOpen] = useState(false);
   const displayName = username || "Your account";
 
   return (
     <header className="topbar">
-      <PhonemailLogo className="mobile-brand" />
+      <div className="mobile-header-brand">
+        <PhonemailLogo className="mobile-brand" />
+        <button
+          className="mobile-folder-toggle"
+          onClick={onToggleMobileFolders}
+          aria-label={mobileFoldersOpen ? "Close folders" : "Open folders"}
+          title={mobileFoldersOpen ? "Close folders" : "Open folders"}
+        >
+          {mobileFoldersOpen ? <FiX /> : <FiMenu />}
+        </button>
+      </div>
       <div className="search-box">
         <FiSearch aria-hidden="true" />
         <input
