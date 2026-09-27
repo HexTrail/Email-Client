@@ -10,6 +10,7 @@ type MailSidebarProps = {
   onFolderSelect: (folder: Folder) => void;
   onToggleCollapse: () => void;
   onToggleMobile: () => void;
+  onCompose: () => void;
 };
 
 export default function MailSidebar({
@@ -20,6 +21,7 @@ export default function MailSidebar({
   onFolderSelect,
   onToggleCollapse,
   onToggleMobile,
+  onCompose,
 }: MailSidebarProps) {
   return (
     <>
@@ -36,7 +38,7 @@ export default function MailSidebar({
           </button>
         </div>
 
-        <button className={`compose-button${collapsed ? " compose-icon-only" : ""}`} title="New message">
+        <button className={`compose-button${collapsed ? " compose-icon-only" : ""}`} title="New message" onClick={onCompose}>
           <span className="compose-plus">+</span>
           {!collapsed && <span>New message</span>}
         </button>
@@ -74,7 +76,7 @@ export default function MailSidebar({
       {mobileOpen && (
         <button className="mobile-nav-backdrop" onClick={onToggleMobile} aria-label="Close folders" />
       )}
-      <button className="mobile-compose-button" title="New message" aria-label="New message">
+      <button className="mobile-compose-button" title="New message" aria-label="New message" onClick={onCompose}>
         <span className="compose-plus">+</span>
       </button>
     </>

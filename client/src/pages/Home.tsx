@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../Context/AuthContext.tsx";
 import ConversationDetail from "../components/home/ConversationDetail.tsx";
 import ConversationList from "../components/home/ConversationList.tsx";
+import ComposeModal from "../components/home/ComposeModal.tsx";
 import MailHeader from "../components/home/MailHeader.tsx";
 import MailSidebar from "../components/home/MailSidebar.tsx";
 import type { Conversation, Folder } from "../components/home/homeTypes.ts";
@@ -23,6 +24,7 @@ function Home() {
   const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState(false);
   const [mobileFoldersOpen, setMobileFoldersOpen] = useState(false);
+  const [composeOpen, setComposeOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
@@ -77,6 +79,7 @@ function Home() {
         }}
         onToggleCollapse={() => setCollapsed(!collapsed)}
         onToggleMobile={() => setMobileFoldersOpen(!mobileFoldersOpen)}
+        onCompose={() => setComposeOpen(true)}
       />
       <section className="mail-main">
         <MailHeader
@@ -110,6 +113,14 @@ function Home() {
           />
         </div>
       </section>
+      <ComposeModal
+        open={composeOpen}
+        onClose={() => setComposeOpen(false)}
+        onSent={() => {
+          setComposeOpen(false);
+          void loadConversations();
+        }}
+      />
     </main>
   );
 }
