@@ -15,6 +15,5 @@ COPY . .
 # Express API port + SMTP server port
 EXPOSE 5000
 EXPOSE 2525
-EXPOSE 3000
 
 CMD ["node", "src/index.js"]

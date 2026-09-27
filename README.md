@@ -1,176 +1,301 @@
 # PhoneMail
 
-PhoneMail is an email client prototype built around phone-number-based accounts. The planned experience combines a React web client with a Node.js backend, MongoDB persistence, and a local SMTP server for delivering mail between PhoneMail users.
+## Clone and Run
 
-The project is currently under active development. The sign-in page and initial backend route are present, while the full authentication flow, mailbox UI, persistence routes, and production mail delivery still need to be completed.
+The quickest way to run PhoneMail on Windows is with Docker Compose. Install Git and Docker Desktop first, and make sure Docker Desktop is running.
 
-## Features
+1. Clone the repository and enter the project directory:
 
-### Currently present
+    ```powershell
+    git clone https://github.com/HexTrail/Email-Client.git
+    cd Email-Client
+    ```
 
-- React and TypeScript client powered by Vite.
-- Sign-in form with client-side validation for a 10-digit phone number and 6-digit OTP.
-- Terms of Service modal on the sign-in page.
-- Express backend with CORS and JSON request handling.
-- Initial `POST /auth/signin` endpoint with phone and OTP shape validation.
-- Mongoose schemas for users, conversations, and messages.
-- Local SMTP and Nodemailer modules designed for development mail delivery.
+2. Create the backend environment file and open it for editing:
 
-### Planned
+    ```powershell
+    Copy-Item .env.example server/.env
+    notepad server/.env
+    ```
 
-- Twilio OTP generation and verification.
-- JWT login sessions and protected API routes.
-- Compose, inbox, sent, drafts, spam, trash, and attachment workflows.
-- Conversation-based mobile chat view and group conversations.
-- MongoDB and Redis integration.
-- End-to-end encryption and Docker-based development.
+    Set `FRONTEND_URI=http://localhost:3000` and a long, unique `JWT_SECRET`. To use phone sign-in and password recovery, also set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_VERIFY_SERVICE_SID`. These values come from your Twilio account. The Compose file supplies MongoDB and SMTP connection settings. The `server/.env` file must exist before Compose starts.
 
-## Tech Stack
+3. Build and start the services:
 
-- **Client:** React 19, TypeScript, Vite, React Router, Tailwind CSS, Axios
-- **Server:** Node.js, Express, MongoDB/Mongoose
-- **Authentication:** JWT, bcrypt, Twilio (planned)
-- **Email:** Nodemailer, `smtp-server`, `mailparser`
-- **Supporting services:** Redis (planned)
+    ```powershell
+    docker compose up --build -d
+    ```
 
-## Project Structure
+4. Open [http://localhost:3000](http://localhost:3000) and sign in or create an account. SMS verification will not work until the Twilio Verify values are configured.
 
-```text
-.
-├── client/
-│   ├── src/
-│   │   ├── components/       # Shared React components
-│   │   ├── pages/            # Sign-in and application pages
-│   │   ├── App.tsx           # Client routes
-│   │   └── main.tsx          # React entry point
-│   └── package.json
-├── server/
-│   ├── src/
-│   │   ├── Middleware/       # Authentication middleware
-│   │   ├── Models/           # Mongoose schemas
-│   │   ├── index.js          # Express API entry point
-│   │   ├── mailer.js         # Nodemailer SMTP client
-│   │   └── smtp-server.js    # Local SMTP server
-│   └── package.json
-├── notes.md                  # Development notes and task list
-└── README.md
+5. To inspect backend logs or stop the stack:
+
+    ```powershell
+    docker compose logs -f backend
+    docker compose down
+    ```
+
+    Press `Ctrl+C` to stop following logs. The containers continue running until `docker compose down`. MongoDB data remains in the `mongo-data` volume; `docker compose down -v` also deletes that data.
+
+The Compose stack exposes the client at port `3000`, the API at `5000`, SMTP at `2525`, and MongoDB at `27018`. Phone verification and optional IVR confirmation SMS require Twilio credentials.
+
+PhoneMail is an in-development email client that uses phone numbers as account identifiers and groups mail into conversations. The repository includes a React/TypeScript client, an Express API, MongoDB persistence, Twilio phone verification, and a local SMTP delivery path.
+
+## Capabilities
+
+| Capability | Status |
+| --- | --- |
+| Phone-based sign-in/account creation with password | Implemented |
+| SMS one-time-code verification and password recovery | Implemented; requires Twilio Verify credentials |
+| HTTP-only JWT session cookie and protected API routes | Implemented |
+| IVR account creation through a Twilio voice webhook | Implemented |
+| Compose and send plain-text mail to local-domain addresses | Implemented through local SMTP |
+| Conversation list and latest-message preview | Implemented |
+| Full message history, folder actions, attachment upload, and search | Not implemented |
+| Redis caching and end-to-end encryption | Planned; not implemented |
+
+## Architecture
+
+The browser sends `/api` requests to Express. The API handles identity and authorization. For mail submission, it passes the message to Nodemailer, which connects to the local SMTP listener. SMTP parses the message and persists it to MongoDB.
+
+```mermaid
+flowchart LR
+    Browser[React client]
+    Proxy[Vite proxy or Nginx]
+    API[Express API]
+    Auth[JWT cookie middleware]
+    Mongo[(MongoDB)]
+    Twilio[Twilio Verify and Voice]
+    Mailer[Nodemailer]
+    SMTP[Local SMTP server]
+
+    Browser -->|/api requests| Proxy
+    Proxy --> API
+    API --> Auth
+    Auth --> Mongo
+    API <-->|OTP requests and IVR webhooks| Twilio
+    API --> Mailer
+    Mailer -->|SMTP port 2525| SMTP
+    SMTP --> Mongo
 ```
 
-## Requirements
+### Account Verification Flow
 
-- Node.js 18 or newer
-- npm
-- MongoDB for the planned persistence layer
-- Twilio credentials for the planned OTP flow
-- Redis for the planned cache integration
+```mermaid
+sequenceDiagram
+    actor User
+    participant Client as React client
+    participant API as Express API
+    participant DB as MongoDB
+    participant Verify as Twilio Verify
 
-The current client can be installed and started without MongoDB, Twilio, or Redis. The backend may require additional implementation and configuration before it can run as a complete service.
+    User->>Client: Submit phone, username, and password
+    Client->>API: POST /api/auth/signin
+    API->>DB: Find or create account, then save password hash
+    API->>Verify: Request SMS code
+    Verify-->>User: Deliver one-time code
+    API-->>Client: Verification requested
+    User->>Client: Enter code
+    Client->>API: POST /api/auth/verify-otp
+    API->>Verify: Check code
+    Verify-->>API: Approved or rejected
+    alt Code approved
+        API->>DB: Set phoneVerified to true
+        API-->>Client: Set HTTP-only JWT cookie and return profile
+    else Code rejected
+        API-->>Client: Return verification error
+    end
+```
 
-## Installation
+### Message Delivery and Conversation Listing
 
-Install dependencies in each application directory:
+```mermaid
+sequenceDiagram
+    actor User
+    participant Client as React client
+    participant API as Express API
+    participant Mailer as Nodemailer
+    participant SMTP as Local SMTP listener
+    participant DB as MongoDB
 
-```bash
+    User->>Client: Compose recipient, subject, and text
+    Client->>API: POST /api/send-email with session cookie
+    API->>API: Verify session and derive sender from token
+    API->>Mailer: Send using configured SMTP host
+    Mailer->>SMTP: Submit SMTP envelope and message data
+    SMTP->>SMTP: Check local domain and parse message
+    SMTP->>DB: Find or create conversation, insert message, and update summary
+    SMTP-->>Mailer: Accept or reject
+    Mailer-->>API: Delivery result
+    API-->>Client: Return success or error
+    Client->>API: GET /api/conversations with session cookie
+    API->>DB: Find conversations containing the user's phone
+    API-->>Client: Return conversation summaries
+```
+
+The conversation endpoint currently returns summaries, not full message history. The detail panel displays the latest-message preview saved on the conversation.
+
+## Database Models
+
+The Mongoose models are defined in `server/src/Models/`. `Message` references `Conversation` by MongoDB ObjectId. User participation is stored as phone strings rather than references to `User` documents; there is no automatic cascade when a user changes or is removed.
+
+```mermaid
+erDiagram
+    USER {
+        ObjectId _id
+        string phone
+        string username
+        boolean phoneVerified
+        string password
+    }
+    CONVERSATION ||--o{ MESSAGE : contains
+    CONVERSATION {
+        ObjectId _id
+        string[] participants
+        boolean isGroup
+        string groupName
+        string participantsKey
+        date lastMessageAt
+        string lastMessagePreview
+        string lastMessageFrom
+    }
+    MESSAGE {
+        ObjectId _id
+        ObjectId conversation
+        string from
+        string[] to
+        string[] cc
+        string subject
+        string text
+        string html
+        date date
+        map recipientState
+        object senderState
+        ObjectId repliedTo
+    }
+```
+
+### User
+
+`User` stores a required `phone` string, `username`, `phoneVerified`, and an optional `password`. The auth API validates phone numbers in international E.164 format. Keeping phone as a string preserves formatting and leading zeroes. Passwords set through the auth flow are bcrypt hashes; IVR-created users may not have a password yet. The database field is named `password`, though it contains the hash.
+
+### Conversation
+
+`Conversation` stores participant phone identifiers and whether the thread is a group. For one-to-one mail, the SMTP persistence path sorts participant identifiers and joins them into `participantsKey`; a partial unique index prevents duplicate one-to-one conversations. Messages to multiple recipients create a new group conversation rather than reusing an existing group. `lastMessageAt`, `lastMessagePreview`, and `lastMessageFrom` are denormalized for list rendering. Indexes support participant lookup by most recent activity.
+
+### Message
+
+`Message` references one conversation and stores sender/recipient addresses, subject, text/HTML bodies, attachment metadata, and dates. `recipientState` defines per-recipient read, favorite, and folder values; `senderState` defines sent, drafts, and trash state. Reply-chain fields connect a reply to its parent and mark whether the original has been answered. These fields are in the schema, but routes that manage most of these mailbox states are not yet implemented.
+
+The current SMTP persistence path creates the message and updates the conversation summary, but does not populate recipient state or attachment records. No database migration, cascading delete, or retention policy is configured.
+
+## HTTP API
+
+Routes are mounted under `/api` unless the path begins with `/voice`. Protected routes require the `token` cookie issued after successful OTP verification.
+
+| Method | Path | Access | Purpose |
+| --- | --- | --- | --- |
+| `POST` | `/api/auth/signin` | Public | Create/continue sign-in and request a code |
+| `POST` | `/api/auth/verify-otp` | Public | Verify code, mark phone verified, issue session cookie |
+| `POST` | `/api/auth/forgot-password` | Public | Request recovery code without revealing account existence |
+| `POST` | `/api/auth/reset-password` | Public | Verify recovery code and replace password hash |
+| `GET` | `/api/user` | Session | Return current user's profile |
+| `POST` | `/api/signout` | Session | Clear session cookie |
+| `POST` | `/api/send-email` | Session | Send plain-text mail through local SMTP |
+| `GET` | `/api/emails` | Session | List messages addressed to the current user's generated address |
+| `GET` | `/api/conversations` | Session | List conversation summaries for the current user |
+| `POST` | `/voice/incoming` | Twilio webhook | Return IVR menu as TwiML |
+| `POST` | `/voice/menu` | Twilio webhook | Process IVR selection and create account |
+
+`POST /api/send-email` accepts `to` as a string or an array of strings, plus string `subject` and `text`. SMTP accepts only sender and recipient addresses at the configured `DOMAIN`, which defaults to `phonemail.test`.
+
+## Requirements and Configuration
+
+- Node.js 20 or newer and npm
+- Docker Desktop with Compose for the containerized stack, or MongoDB for local backend development
+- Twilio Verify credentials for SMS sign-in and recovery
+- Twilio account credentials and a sender number for optional IVR confirmation SMS
+
+The backend loads configuration from `server/.env`. The root `.env.example` lists available variables. Copy it to `server/.env`, provide the values needed for your setup, and never commit real secrets.
+
+| Variable | Purpose |
+| --- | --- |
+| `MONGO_URI` | MongoDB connection; Compose overrides this to use its `mongo` service |
+| `FRONTEND_URI` | Credentialed CORS origin; local Vite default is `http://localhost:5173` |
+| `JWT_SECRET` | Secret used to sign session tokens; use a long random value |
+| `PORT` or `API_PORT` | Express port; defaults to `5000` |
+| `SMTP_PORT` | SMTP listener port; defaults to `2525` |
+| `SMTP_HOST` | Nodemailer target; defaults to `127.0.0.1` |
+| `DOMAIN` | Accepted local email domain; defaults to `phonemail.test` |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | Twilio credentials |
+| `TWILIO_VERIFY_SERVICE_SID` | Verify service for sign-in and recovery codes |
+| `TWILIO_FROM_NUMBER` | Optional sender number for IVR confirmation SMS |
+
+Compose requires `server/.env` to exist, even when Twilio is not configured. It exposes MongoDB on host port `27018`, the API and SMTP listener on `5000` and `2525`, and the frontend on `3000`.
+
+## Run Locally
+
+Install dependencies from the repository root:
+
+```powershell
 cd client
 npm install
-
-cd ../server
+cd ..\server
 npm install
 ```
 
-## Configuration
+Configure `server/.env` with a reachable `MONGO_URI`, `FRONTEND_URI=http://localhost:5173`, and `JWT_SECRET`. Add Twilio settings to enable verification. Start backend and client in separate terminals:
 
-Create a `.env` file in `server/` when enabling the backend services. The code currently reads or expects these values:
-
-```env
-FRONTEND_URI=http://localhost:5173
-JWT_SECRET=replace-with-a-long-random-secret
-SMTP_PORT=2525
-DOMAIN=phonemail.test
-```
-
-Additional values will be needed when Twilio, MongoDB, and Redis integration is implemented. Do not commit real credentials or secrets.
-
-## Running the Project
-
-Start the client:
-
-```bash
-cd client
-npm run dev
-```
-
-The Vite development server normally runs at `http://localhost:5173`.
-
-Start the Express API in a second terminal:
-
-```bash
+```powershell
 cd server
 node src/index.js
 ```
 
-The API is configured to listen on `http://localhost:5000`.
-
-The SMTP module is intended to run as a separate local process:
-
-```bash
-cd server
-node src/smtp-server.js
+```powershell
+cd client
+npm run dev
 ```
 
-The local SMTP server defaults to port `2525` and accepts recipients in the configured `DOMAIN`. `mailer.js` sends outgoing messages to this local server rather than to an external provider.
+Open `http://localhost:5173`. Vite proxies `/api` to `http://localhost:5000`. The backend starts MongoDB, SMTP, and Express in one process; do not start `smtp-server.js` separately when using `index.js`.
 
-## Available Client Routes
+## Tests and Quality Checks
 
-| Route | Purpose | Status |
-| --- | --- | --- |
-| `/` | Phone and OTP sign-in page | Initial UI available |
-| `/home` | Authenticated mail experience | Page shell only |
+Run backend tests from `server/`:
 
-## API
-
-### `POST /auth/signin`
-
-The initial route expects JSON in this shape:
-
-```json
-{
-	"phone": "9876543210",
-	"otp": "123456"
-}
+```powershell
+npm test
 ```
 
-The current validation requires a 10-character phone string and a 6-character OTP string. Successful authentication, token creation, and persistence are not implemented yet.
+Run client checks from `client/`:
 
-## Data Model Intent
-
-- **User:** stores a phone number and username. Phone numbers should remain strings so leading zeroes are preserved.
-- **Conversation:** groups one-to-one and group mail threads. One-to-one conversations use a sorted participant key to avoid duplicate threads.
-- **Message:** stores message content, recipients, attachments, folder state, read/favorite state, and reply-chain metadata.
-
-## Client Scripts
-
-Run these from `client/`:
-
-```bash
-npm run dev       # Start Vite development server
-npm run build     # Type-check and create a production build
-npm run lint      # Run ESLint
-npm run preview   # Preview the production build
+```powershell
+npm run build
+npm run lint
 ```
 
-The server package does not yet define a development or production start script; use the Node commands above until those scripts are added.
+Backend tests use Node's built-in test runner and cover auth/OTP behavior, IVR responses, phone-string preservation, middleware, and SMTP delivery. They use test doubles and do not require live MongoDB or Twilio services.
 
-## Known Limitations
+## Security and Operational Boundaries
 
-- The sign-in form currently validates input locally and does not call the API.
-- The backend sign-in handler validates input but does not complete authentication or return a session.
-- The home page is an empty layout shell.
-- SMTP code references a storage module that is not currently present in the repository.
-- The backend imports `zod`, but it is not currently listed in `server/package.json`.
-- Database connection, mailbox APIs, Twilio OTP delivery, and Redis caching are not wired up yet.
-- No automated test suite is configured.
+- Passwords are bcrypt-hashed. JWTs are issued in an HTTP-only cookie, marked `secure` in production, with `sameSite: strict`.
+- The local SMTP server permits unauthenticated connections, disables STARTTLS, and only checks that envelope addresses use the configured domain. It is not safe to expose to an untrusted network or use as a production mail server.
+- Message bodies pass through the server and are stored in MongoDB as plaintext. End-to-end encryption is not implemented.
+- Full thread retrieval, folder mutations, attachment upload, search, and spam handling are not complete API workflows.
+- Docker Compose is a development environment, not a production deployment configuration.
 
-## Development Notes
+## Repository Layout
 
-See [notes.md](notes.md) for the current task list, team responsibilities, and implementation notes.
+```text
+client/                   React, TypeScript, and Vite application
+  src/Context/             Authentication state and API calls
+  src/components/home/     Mail interface components
+  src/pages/               Sign-in, verification, recovery, and home pages
+server/
+  src/Models/              Mongoose schemas
+  src/Middleware/          JWT authentication middleware
+  src/routes/              Auth, email, and voice routes
+  src/index.js             API, MongoDB, and SMTP startup
+  src/mailer.js            Nodemailer SMTP client
+  src/smtp-server.js       Local SMTP receiver and persistence
+  test/                    Backend tests
+docker-compose.yml         Local MongoDB, API, and frontend services
