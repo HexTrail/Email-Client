@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { FiArrowLeft, FiMoreHorizontal } from "react-icons/fi";
 import type { Conversation } from "./homeTypes.ts";
 import { formatAddress, formatTime, initials } from "./homeUtils.ts";
@@ -13,6 +14,8 @@ export default function ConversationDetail({
   currentUserPhone,
   onBack,
 }: ConversationDetailProps) {
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [copyMessage, setCopyMessage] = useState("");
   const participants = conversation?.participants
     .filter((participant) => participant !== currentUserPhone)
     .map(formatAddress) ?? [];
@@ -25,6 +28,16 @@ export default function ConversationDetail({
       : formatAddress(conversation.lastMessageFrom)
     : title;
 
+  async function copyAddresses() {
+    try {
+      await navigator.clipboard.writeText(participants.join(", "));
+      setCopyMessage("Address copied");
+    } catch {
+      setCopyMessage("Could not copy address");
+    }
+    setOptionsOpen(false);
+  }
+
   return (
     <section className="conversation-detail" aria-label="Selected conversation">
       {conversation ? (
@@ -35,7 +48,38 @@ export default function ConversationDetail({
               <span className="conversation-avatar detail-avatar">{initials(title)}</span>
               <div><h2>{title}</h2><p>{participants.join(", ") || "Conversation"}</p></div>
             </div>
-            <button className="icon-button detail-more" aria-label="More conversation options" title="More options"><FiMoreHorizontal /></button>
+            <div className="detail-options-wrap">
+              <button
+                className="icon-button detail-more"
+                type="button"
+                aria-label="More conversation options"
+                aria-expanded={optionsOpen}
+                aria-controls="conversation-options"
+                title="More options"
+                onClick={() => {
+                  setOptionsOpen(!optionsOpen);
+                  setCopyMessage("");
+                }}
+              >
+                <FiMoreHorizontal />
+              </button>
+              {optionsOpen && (
+                <div className="detail-options" id="conversation-options">
+                  {participants.length > 0 && (
+                    <button type="button" onClick={() => void copyAddresses()}>
+                      Copy address{participants.length > 1 ? "es" : ""}
+                    </button>
+                  )}
+                  <button type="button" onClick={() => {
+                    setOptionsOpen(false);
+                    onBack();
+                  }}>
+                    Close conversation
+                  </button>
+                </div>
+              )}
+              {copyMessage && <span className="detail-action-status" role="status">{copyMessage}</span>}
+            </div>
           </div>
           <div className="thread-body">
             <div className="thread-date"><span />LATEST MESSAGE<span /></div>

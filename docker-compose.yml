@@ -6,7 +6,7 @@ services:
     volumes:
       - mongo-data:/data/db
     ports:
-      - "27017:27017"
+      - "27018:27017"
 
   backend:
     build: ./server
@@ -24,7 +24,6 @@ services:
     ports:
       - "5000:5000"
       - "2525:2525"
-      - "3000:3000"
 
   frontend:
     build: ./client
