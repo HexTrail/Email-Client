@@ -1,29 +1,27 @@
-import twilio from 'twilio'
+import twilio from 'twilio';
 
-const accountSid = process.env.TWILIO_ACCOUNT_SID;
-const authToken = process.env.TWILIO_AUTH_TOKEN;
-const client = twilio(accountSid, authToken);
+function getVerifyService() {
+  const { TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_VERIFY_SERVICE_SID } = process.env;
+  if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_VERIFY_SERVICE_SID) {
+    throw new Error('Twilio Verify credentials are not configured');
+  }
+
+  return twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+    .verify.v2.services(TWILIO_VERIFY_SERVICE_SID);
+}
 
 async function createVerification(phoneNumber) {
-  const verification = await client.verify.v2
-    .services(process.env.TWILIO_VERIFY_SERVICE_SID)
-    .verifications.create({
-      channel: "sms",
-      to: phoneNumber,
-    });
-
-  console.log(verification.sid);
+  return getVerifyService().verifications.create({
+    channel: 'sms',
+    to: phoneNumber,
+  });
 }
 
 async function verifyOtp(phone, otp) {
-  const result = await client.verify.v2
-    .services(process.env.TWILIO_VERIFY_SERVICE_SID)
-    .verificationChecks.create({
-      to: phone,
-      code: otp,
-    });
-
-  return result;
+  return getVerifyService().verificationChecks.create({
+    to: phone,
+    code: otp,
+  });
 }
 
 export { createVerification, verifyOtp };

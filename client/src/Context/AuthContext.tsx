@@ -18,6 +18,8 @@ type AuthContextType = {
   user: User | null;
   loading: boolean;
   signIn: (phone: string, username: string, password: string) => Promise<void>;
+  pendingPhone: string | null;
+  verifyOtp: (otp: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -32,6 +34,9 @@ type AuthProviderProps = {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pendingPhone, setPendingPhone] = useState<string | null>(() =>
+    sessionStorage.getItem("pendingOtpPhone")
+  );
 
   /*
    * Check whether the user already has a valid session
@@ -52,7 +57,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const data = response.data;
 
         setUser(data.user);
-      } catch (error) {
+      } catch {
         setUser(null);
       } finally {
         setLoading(false);
@@ -67,7 +72,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     username: string,
     password: string
   ): Promise<void> {
-    const response = await axios.post(
+    await axios.post(
       "/api/auth/signin",
       {
         phone,
@@ -77,9 +82,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
       { withCredentials: true }
     );
 
-    if (response.status !== 200 && response.status !== 201) {
-      throw new Error("Invalid phone number or password");
+    sessionStorage.setItem("pendingOtpPhone", phone);
+    setPendingPhone(phone);
+  }
+
+  async function verifyOtp(otp: string): Promise<void> {
+    if (!pendingPhone) {
+      throw new Error("Start sign-in before verifying a code");
     }
+
+    const response = await axios.post(
+      "/api/auth/verify-otp",
+      { phone: pendingPhone, otp },
+      { withCredentials: true }
+    );
+
+    setUser(response.data.user);
+    sessionStorage.removeItem("pendingOtpPhone");
+    setPendingPhone(null);
   }
 
   async function signOut(): Promise<void> {
@@ -97,6 +117,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         user,
         loading,
         signIn,
+        pendingPhone,
+        verifyOtp,
         signOut,
       }}
     >
@@ -105,6 +127,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   );
 }
 
+// The context hook intentionally shares the provider's module.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
 

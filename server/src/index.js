@@ -6,7 +6,6 @@ import mongoose from "mongoose";
 import authRoutes from "./routes/auth.js";
 import emailRoutes from './routes/email.js';
 import voiceRoutes from './routes/voice.js';
-import smsRoutes from './routes/sms.js';
 import smtpServer from './smtp-server.js';
 
 const app = express();
@@ -26,7 +25,6 @@ app.use(cookieParser());
 app.use('/api', authRoutes);
 app.use('/api', emailRoutes);
 app.use('/voice', voiceRoutes);
-app.use('/sms', smsRoutes);
 
 mongoose.connection.on('disconnected', () => {
   console.warn('MongoDB disconnected');

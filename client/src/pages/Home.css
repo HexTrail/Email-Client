@@ -205,3 +205,25 @@
   .thread-body { padding: 28px 16px; }
   .detail-empty h2 { font-size: 20px; }
 }
+
+.compose-overlay { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 24px; background: #1d2d2738; }
+.compose-modal { width: min(560px, 100%); max-height: min(720px, 100%); overflow-y: auto; border: 1px solid #e0e8e0; border-radius: 12px; background: #fff; box-shadow: 0 18px 60px #18392c2b; }
+.compose-modal-header { display: flex; align-items: flex-start; justify-content: space-between; padding: 22px 24px 17px; border-bottom: 1px solid var(--line); }
+.compose-modal-header h2 { margin: 5px 0 0; color: #2a3832; font-family: Georgia, serif; font-size: 23px; font-weight: 500; }
+.compose-modal form { padding: 20px 24px 22px; }
+.compose-field { display: flex; flex-direction: column; gap: 7px; margin-bottom: 16px; color: #52605a; font-size: 10px; font-weight: 600; }
+.compose-field input, .compose-field textarea { width: 100%; box-sizing: border-box; border: 1px solid #dfe6df; border-radius: 7px; outline: 0; color: var(--ink); background: #fbfcfa; font: inherit; font-size: 11px; font-weight: 400; }
+.compose-field input { height: 40px; padding: 0 12px; }
+.compose-field textarea { min-height: 150px; resize: vertical; padding: 11px 12px; line-height: 1.7; }
+.compose-field input:focus, .compose-field textarea:focus { border-color: #6aa48b; box-shadow: 0 0 0 3px #e3f0e7; }
+.compose-field input::placeholder, .compose-field textarea::placeholder { color: #a2aaa5; }
+.compose-field small { color: #98a29d; font-size: 9px; font-weight: 400; }
+.compose-message-field { margin-bottom: 10px; }
+.compose-error { margin: 0 0 14px; color: #a34a3d; font-size: 10px; }
+.compose-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.compose-cancel, .compose-send { height: 38px; padding: 0 14px; border-radius: 7px; cursor: pointer; font-size: 10px; font-weight: 600; }
+.compose-cancel { border: 1px solid #e0e6e0; color: #68746e; background: #fff; }
+.compose-send { display: inline-flex; align-items: center; gap: 8px; border: 0; color: #fff; background: #175b4d; }  /*using var(--green) won't work here for some reason, so put its hex value instead.*/
+.compose-send:hover { background: #124b40; }
+.compose-send svg { width: 14px; height: 14px; }
+.compose-cancel:disabled, .compose-send:disabled { cursor: wait; opacity: .65; }
