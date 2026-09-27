@@ -116,6 +116,20 @@
 .auth-submit:hover { background: #124b40; }
 .auth-submit:focus-visible { outline: 3px solid #b9d9c4; outline-offset: 2px; }
 
+.auth-recovery-link {
+  margin: 18px 0 0;
+  text-align: center;
+  font-size: 11px;
+}
+
+.auth-recovery-link a {
+  color: #175b4d;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.auth-recovery-link a:hover { text-decoration: underline; }
+
 .auth-notice { text-align: center; }
 .auth-notice > .phonemail-logo { justify-content: center; }
 .auth-notice .auth-eyebrow { margin-top: 27px; }

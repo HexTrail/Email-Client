@@ -21,6 +21,14 @@ const verifySchema = z.object({
     otp: z.string().regex(/^\d{4,10}$/, 'Enter the verification code')
 });
 
+const resetPasswordSchema = verifySchema.extend({
+    password: z.string().max(15, "Password cannot be more than 15 characters").min(8, "Password must be at least 8 characters")
+        .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+        .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+        .regex(/[0-9]/, "Password must contain at least one number")
+        .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character"),
+});
+
 export function createAuthRouter({
     UsersModel = Users,
     sendVerification = createVerification,
@@ -68,6 +76,54 @@ router.post('/auth/signin', async (req, res) => {
     } catch (error) {
         console.error("[auth] failed to start phone verification:", error);
         return res.status(502).json({ success: false, message: "Could not send verification code" });
+    }
+});
+
+router.post('/auth/forgot-password', async (req, res) => {
+    const phoneResult = z.string().regex(/^\+[1-9]\d{7,14}$/).safeParse(req.body?.phone);
+    if (!phoneResult.success) {
+        return res.status(400).json({ success: false, message: "Enter a valid phone number" });
+    }
+
+    try {
+        const user = await UsersModel.findOne({ phone: phoneResult.data });
+        if (user?.phoneVerified && user.password) {
+            await sendVerification(phoneResult.data);
+        }
+        return res.status(200).json({
+            success: true,
+            message: "If a verified account exists for that number, a code has been sent.",
+        });
+    } catch (error) {
+        console.error("[auth] failed to start password recovery:", error);
+        return res.status(502).json({ success: false, message: "Could not send a recovery code" });
+    }
+});
+
+router.post('/auth/reset-password', async (req, res) => {
+    const validationResult = resetPasswordSchema.safeParse(req.body);
+    if (!validationResult.success) {
+        return res.status(400).json({ success: false, error: validationResult.error });
+    }
+
+    const { phone, otp, password } = validationResult.data;
+    try {
+        const user = await UsersModel.findOne({ phone });
+        if (!user?.phoneVerified || !user.password) {
+            return res.status(400).json({ success: false, message: "Invalid or expired verification code" });
+        }
+
+        const verification = await checkVerification(phone, otp);
+        if (verification.status !== 'approved') {
+            return res.status(400).json({ success: false, message: "Invalid or expired verification code" });
+        }
+
+        user.password = await bcrypt.hash(password, 10);
+        await user.save();
+        return res.status(200).json({ success: true, message: "Password reset successfully" });
+    } catch (error) {
+        console.error("[auth] failed to reset password:", error);
+        return res.status(500).json({ success: false, message: "Could not reset password" });
     }
 });
 

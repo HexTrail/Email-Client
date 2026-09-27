@@ -1,6 +1,6 @@
 import { useState } from "react";
 import PhonemailLogo from "../components/PhonemailLogo.tsx";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../Context/AuthContext.tsx";
 import "./AuthPages.css";
 
@@ -93,6 +93,7 @@ function Signin() {
             Continue
           </button>
         </form>
+        <p className="auth-recovery-link"><Link to="/forgot-password">Forgot password?</Link></p>
       </section>
     </main>
   );
