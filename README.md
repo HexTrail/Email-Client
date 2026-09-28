@@ -18,7 +18,7 @@ The quickest way to run PhoneMail on Windows is with Docker Compose. Install Git
     notepad server/.env
     ```
 
-    Set `FRONTEND_URI=http://localhost:3000` and a long, unique `JWT_SECRET`. To use phone sign-in and password recovery, also set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_VERIFY_SERVICE_SID`. These values come from your Twilio account. The Compose file supplies MongoDB and SMTP connection settings. The `server/.env` file must exist before Compose starts.
+    Set `FRONTEND_URI=http://localhost:3000` and a long, unique `JWT_SECRET`. For live IVR calls, set `TWILIO_AUTH_TOKEN` so the backend can verify Twilio's webhook signature. To use phone sign-in and password recovery, also set `TWILIO_ACCOUNT_SID` and `TWILIO_VERIFY_SERVICE_SID`. These values come from your Twilio account. The Compose file supplies MongoDB and SMTP connection settings. The `server/.env` file must exist before Compose starts.
 
 3. Build and start the services:
 
@@ -28,14 +28,15 @@ The quickest way to run PhoneMail on Windows is with Docker Compose. Install Git
 
 4. Open [http://localhost:3000](http://localhost:3000) and sign in or create an account. SMS verification will not work until the Twilio Verify values are configured.
 
-5. To inspect backend logs or stop the stack:
+5. To get the IVR tunnel URL, follow its logs:
 
     ```powershell
-    docker compose logs -f backend
-    docker compose down
+    docker compose logs -f ivr-tunnel
     ```
 
-    Press `Ctrl+C` to stop following logs. The containers continue running until `docker compose down`. MongoDB data remains in the `mongo-data` volume; `docker compose down -v` also deletes that data.
+    Wait until the log shows `Registered tunnel connection`, then copy the `https://...trycloudflare.com` URL and press `Ctrl+C` to stop following logs. The containers continue running. Add `/voice/incoming` to the URL, then paste it into the Twilio number's "**A call comes in**" webhook using `HTTP POST`. Cloudflare can print a URL before the tunnel is connected; don't use it until the connection is registered.
+
+6. To inspect backend logs, run `docker compose logs -f backend` in another terminal. To stop the stack, run `docker compose down`. MongoDB data remains in the `mongo-data` volume; `docker compose down -v` also deletes that data.
 
 The Compose stack exposes the client at port `3000`, the API at `5000`, SMTP at `2525`, and MongoDB at `27018`. Phone verification and optional IVR confirmation SMS require Twilio credentials.
 
@@ -214,24 +215,26 @@ Routes are mounted under `/api` unless the path begins with `/voice`. Protected 
 - Node.js 20 or newer and npm
 - Docker Desktop with Compose for the containerized stack, or MongoDB for local backend development
 - Twilio Verify credentials for SMS sign-in and recovery
-- Twilio account credentials and a sender number for optional IVR confirmation SMS
+- Twilio account credentials for signed IVR webhooks and SMS verification; a sender number is optional for IVR confirmation SMS
 
 The backend loads configuration from `server/.env`. The root `.env.example` lists available variables. Copy it to `server/.env`, provide the values needed for your setup, and never commit real secrets.
 
 | Variable | Purpose |
 | --- | --- |
 | `MONGO_URI` | MongoDB connection; Compose overrides this to use its `mongo` service |
-| `FRONTEND_URI` | Credentialed CORS origin; local Vite default is `http://localhost:5173` |
+| `FRONTEND_URI` | Credentialed CORS origin; Compose default is `http://localhost:3000`, local Vite uses `http://localhost:5173` |
 | `JWT_SECRET` | Secret used to sign session tokens; use a long random value |
 | `PORT` or `API_PORT` | Express port; defaults to `5000` |
 | `SMTP_PORT` | SMTP listener port; defaults to `2525` |
 | `SMTP_HOST` | Nodemailer target; defaults to `127.0.0.1` |
 | `DOMAIN` | Accepted local email domain; defaults to `phonemail.test` |
-| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | Twilio credentials |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | Twilio credentials; the Auth Token is used to verify signed voice webhooks |
 | `TWILIO_VERIFY_SERVICE_SID` | Verify service for sign-in and recovery codes |
 | `TWILIO_FROM_NUMBER` | Optional sender number for IVR confirmation SMS |
 
-Compose requires `server/.env` to exist, even when Twilio is not configured. It exposes MongoDB on host port `27018`, the API and SMTP listener on `5000` and `2525`, and the frontend on `3000`.
+The receiving Twilio phone number is configured in the Twilio Console, not in `server/.env`. Set its **A call comes in** Voice webhook to the tunnel URL plus `/voice/incoming`. `TWILIO_FROM_NUMBER` is only for optional outgoing confirmation SMS; the IVR identifies the caller from Twilio's request and uses that caller's phone number for the account.
+
+Compose requires `server/.env` to exist. It exposes MongoDB on host port `27018`, the API and SMTP listener on `5000` and `2525`, and the frontend on `3000`. The `ivr-tunnel` service starts a temporary public Cloudflare Quick Tunnel and prints its URL in that container's logs. No purchased domain, separate tunnel account, or separate tunnel installation is needed. Testers paste the printed webhook URL into the Twilio Console once per tunnel start.
 
 ## Run Locally
 
@@ -256,9 +259,29 @@ cd client
 npm run dev
 ```
 
-Open `http://localhost:5173`. Vite proxies `/api` to `http://localhost:5000`. The backend starts MongoDB, SMTP, and Express in one process; do not start `smtp-server.js` separately when using `index.js`.
+Open `http://localhost:5173`. Vite proxies `/api` to `http://localhost:5000`. The Twilio voice webhook is served directly by Express on `/voice`; it is not a browser client route. The backend starts MongoDB, SMTP, and Express in one process; do not start `smtp-server.js` separately when using `index.js`.
 
-## Tests and Quality Checks
+### IVR Setup in Compose
+
+Twilio cannot call `localhost`, so Compose starts a separate `ivr-tunnel` container. It provides a temporary public HTTPS URL and prints it in the tunnel container's logs. It does not change Twilio settings automatically.
+
+1. Copy `.env.example` to `server/.env` and set `JWT_SECRET`, `TWILIO_ACCOUNT_SID`, and `TWILIO_AUTH_TOKEN`. Set `TWILIO_VERIFY_SERVICE_SID` too if testers will sign in to the client after creating an account by phone.
+2. From the repository root, start the stack:
+
+    ```powershell
+    docker compose up --build
+    ```
+
+3. Run `docker compose logs -f ivr-tunnel`. Wait for `Registered tunnel connection`, then copy the HTTPS URL printed by Cloudflare. In the Twilio Console, open **Phone Numbers > Manage > Active Numbers**, select the Voice-capable number, and under **Voice Configuration** set **A call comes in** to `<printed-url>/voice/incoming` with method **HTTP POST**. Save the change.
+4. Call the Twilio number from a mobile phone and press `1` when prompted. Twilio sends the caller's number to PhoneMail, which creates the account for that caller and reads the generated mailbox address aloud.
+
+Keep the Compose stack running while testing; stopping it makes that URL unavailable. The URL can change after a restart, so copy the new URL into the Twilio Console again. Cloudflare Quick Tunnels require an internet connection and are intended for development/testing, not production hosting.
+
+The IVR call creates a phone-only account and reads the generated mailbox address. To use that mailbox in the client, sign in with the same phone number, choose a username and password, and complete phone verification. That verification step requires working Twilio Verify settings. The IVR confirmation SMS is optional and additionally requires `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_FROM_NUMBER`.
+
+## Tests and IVR Smoke Test
+
+### Automated Checks
 
 Run backend tests from `server/`:
 
@@ -273,12 +296,24 @@ npm run build
 npm run lint
 ```
 
-Backend tests use Node's built-in test runner and cover auth/OTP behavior, IVR responses, phone-string preservation, middleware, and SMTP delivery. They use test doubles and do not require live MongoDB or Twilio services.
+Backend tests use Node's built-in test runner and cover auth/OTP behavior, IVR responses and signature rejection, phone-string preservation, middleware, SMTP delivery, and matching IVR/mailbox domains. They use test doubles and do not require live MongoDB, Twilio credentials, a Twilio number, or a tunnel. Client build and lint checks also run without a live Twilio call.
+
+### Live IVR Requirements
+
+A real-call test through Docker Compose additionally requires:
+
+- A running Docker Compose stack and internet access for the `ivr-tunnel` Cloudflare Quick Tunnel container. The host network must allow outbound Cloudflare Tunnel traffic on port `7844` (UDP for QUIC or TCP for HTTP/2).
+- `TWILIO_AUTH_TOKEN` in `server/.env` so the backend can verify Twilio's signed webhook requests.
+- A Voice-capable Twilio number with its **A call comes in** webhook set to the URL printed by Compose, using `HTTP POST`.
+- A caller able to reach the Twilio number. Trial-account restrictions may affect outbound SMS or Verify delivery during the later client sign-in step.
+
+Twilio Verify credentials are only needed to complete sign-in to the web client after the IVR creates the account. IVR confirmation SMS is also optional. A successful request to `http://localhost:5000/voice/incoming` only checks local routing; it does not test the public tunnel or a real call.
 
 ## Security and Operational Boundaries
 
 - Passwords are bcrypt-hashed. JWTs are issued in an HTTP-only cookie, marked `secure` in production, with `sameSite: strict`.
 - The local SMTP server permits unauthenticated connections, disables STARTTLS, and only checks that envelope addresses use the configured domain. It is not safe to expose to an untrusted network or use as a production mail server.
+- Voice webhook requests are checked using Twilio's request signature. The Quick Tunnel still exposes the local API on a temporary public URL, so use it only for controlled development/testing.
 - Message bodies pass through the server and are stored in MongoDB as plaintext. End-to-end encryption is not implemented.
 - Full thread retrieval, folder mutations, attachment upload, search, and spam handling are not complete API workflows.
 - Docker Compose is a development environment, not a production deployment configuration.

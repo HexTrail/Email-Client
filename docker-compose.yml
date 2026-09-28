@@ -34,5 +34,13 @@ services:
     ports:
       - "3000:80"
 
+  ivr-tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: phonemail-ivr-tunnel
+    restart: unless-stopped
+    depends_on:
+      - backend
+    command: ["tunnel", "--no-autoupdate", "--url", "http://backend:5000"]
+
 volumes:
   mongo-data:

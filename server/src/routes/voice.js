@@ -1,16 +1,16 @@
 import express from 'express';
 import twilio from 'twilio';
 import Users from '../Models/Users.js';
+import { getMailboxAddress } from '../mailbox.js';
 const { VoiceResponse } = twilio.twiml;
 
 /**
  * PhoneMail IVR account-creation server
  * ---------------------------------------------
  * Implements:
- *   Toll-free call -> IVR -> "Press 1" -> account created for the caller's number
+ *   Twilio call -> IVR -> "Press 1" -> account created for the caller's number
  *
- * Wire these two URLs into your Twilio phone number's config:
- *   Voice webhook (a call comes in): POST https://<your-domain>/voice/incoming
+ * Configure the Twilio number's incoming Voice webhook to POST to /voice/incoming.
  *
  * Twilio can send an optional SMS confirmation after account creation.
  */
@@ -20,8 +20,27 @@ const client = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
     : null;
 const TWILIO_FROM_NUMBER = process.env.TWILIO_FROM_NUMBER;
 
-export function createVoiceRouter({ UsersModel = Users, sendConfirmation } = {}) {
+export function createVoiceRouter({ UsersModel = Users, sendConfirmation, validateRequest } = {}) {
     const router = express.Router();
+    const isValidRequest = validateRequest || ((req) => {
+        const signature = req.get('X-Twilio-Signature');
+        const authToken = process.env.TWILIO_AUTH_TOKEN;
+        const host = req.get('x-forwarded-host') || req.get('host');
+        if (!signature || !authToken || !host) return false;
+
+        return twilio.validateRequest(
+            authToken,
+            signature,
+            `https://${host}${req.originalUrl}`,
+            req.body
+        );
+    });
+
+    router.use((req, res, next) => {
+        if (!isValidRequest(req)) return res.sendStatus(403);
+        next();
+    });
+
     const sendSms = sendConfirmation || (async (phoneNumber, email) => {
         if (!client || !TWILIO_FROM_NUMBER) {
             console.warn('[voice] Twilio SMS is not configured; skipping confirmation');
@@ -64,8 +83,7 @@ export function createVoiceRouter({ UsersModel = Users, sendConfirmation } = {})
                         twiml.say('An account already exists for this number. Goodbye.');
                     } else {
                         await UsersModel.create({ phone: callerNumber });
-                        const domain = process.env.DOMAIN || 'phonemail.test';
-                        const email = `${callerNumber}@${domain}`;
+                        const email = getMailboxAddress(callerNumber);
                         twiml.say(`Your PhoneMail account has been created. Your address is ${email}.`);
                         try {
                             await sendSms(callerNumber, email);

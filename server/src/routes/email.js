@@ -3,7 +3,14 @@ import authMiddleware from '../Middleware/auth.js';
 import { sendMail } from '../mailer.js';
 import Conversation from '../Models/Conversation.js';
 import Message from '../Models/Message.js';
+import { getMailboxAddress } from '../mailbox.js';
 
+const router = express.Router();
+export function createEmailRouter({
+    sendMailMessage = sendMail,
+    ConversationModel = Conversation,
+    MessageModel = Message,
+} = {}) {
 const router = express.Router();
 
 //endpoint to send email using smtp server created.
@@ -19,10 +26,10 @@ router.post('/send-email', authMiddleware, async (req, res) => {
         });
     }
 
-    const from = `${req.user.phone}@phonemail.test`;
+    const from = getMailboxAddress(req.user.phone);
 
     try {
-        await sendMail({ from, to: recipients, subject, text });
+        await sendMailMessage({ from, to: recipients, subject, text });
         return res.status(200).json({ success: true, message: "Email sent successfully" });
     } catch (error) {
         console.error("[email] failed to send email:", error);
@@ -31,10 +38,10 @@ router.post('/send-email', authMiddleware, async (req, res) => {
 });
 
 router.get('/emails', authMiddleware, async (req, res) => {
-    const address = `${req.user.phone}@phonemail.test`;
+    const address = getMailboxAddress(req.user.phone);
 
     try {
-        const emails = await Message.find({ to: address });
+        const emails = await MessageModel.find({ to: address });
         return res.status(200).json({ success: true, emails });
     } catch (error) {
         console.error("[email] failed to fetch emails:", error);
@@ -47,7 +54,7 @@ router.get('/conversations', authMiddleware, async (req, res) => {
     const phone = req.user.phone;
 
     try {
-        const conversations = await Conversation.find({ participants: phone })
+        const conversations = await ConversationModel.find({ participants: phone })
             .sort({ lastMessageAt: -1 });
         return res.status(200).json({ success: true, conversations });
     } catch (error) {
@@ -56,4 +63,7 @@ router.get('/conversations', authMiddleware, async (req, res) => {
     }
 });
 
-export default router;
+return router;
+}
+
+export default createEmailRouter();
