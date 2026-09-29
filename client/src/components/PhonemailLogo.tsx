@@ -1,3 +1,5 @@
+// Renders the PhoneMail brand mark with an optional name.
+// Renders the PhoneMail brand mark with an optional name.
 import "./PhonemailLogo.css";
 
 type PhonemailLogoProps = {

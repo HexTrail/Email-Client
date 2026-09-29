@@ -1,3 +1,5 @@
+// Provides a reusable country-code and phone-number input.
+// Provides a reusable country-code and phone-number input.
 type PhoneNumberFieldProps = {
   countryCode: string;
   phoneNumber: string;

@@ -1,3 +1,5 @@
+// Displays the terms dialog and reports the user's consent.
+// Displays the terms dialog and reports the user's consent.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 

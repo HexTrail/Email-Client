@@ -1,3 +1,5 @@
+// Provides authenticated endpoints for sending and retrieving email data.
+// Provides authenticated endpoints for sending and retrieving email data.
 import express from 'express';
 import authMiddleware from '../Middleware/auth.js';
 import { sendMail } from '../mailer.js';

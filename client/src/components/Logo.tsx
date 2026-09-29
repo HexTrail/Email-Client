@@ -1,3 +1,5 @@
+// Renders the compact PhoneMail icon used by the client.
+// Renders the compact PhoneMail icon used by the client.
 import { FiSmartphone } from "react-icons/fi";
 import { BsEnvelopeFill } from "react-icons/bs";
 

@@ -1,3 +1,5 @@
+// Validates the session cookie and attaches the authenticated user to requests.
+// Validates the session cookie and attaches the authenticated user to requests.
 import mongoose from "mongoose"
 import jwt from "jsonwebtoken"
 

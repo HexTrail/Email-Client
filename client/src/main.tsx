@@ -1,3 +1,5 @@
+// Mounts the React app with authentication and browser routing providers.
+// Mounts the React app with authentication and browser routing providers.
 // import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import {BrowserRouter} from 'react-router-dom'

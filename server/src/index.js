@@ -1,3 +1,5 @@
+// Configures and starts the API, database connection, and SMTP listener.
+// Configures and starts the API, database connection, and SMTP listener.
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";

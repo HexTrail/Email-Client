@@ -1,3 +1,5 @@
+// Renders the inbox conversation summaries and selection controls.
+// Renders the inbox conversation summaries and selection controls.
 import { FiArchive, FiRefreshCw } from "react-icons/fi";
 import type { Conversation, Folder } from "./homeTypes.ts";
 import { folders } from "./homeTypes.ts";

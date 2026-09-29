@@ -1,3 +1,5 @@
+// Collects message details and submits outgoing email.
+// Collects message details and submits outgoing email.
 import { useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import axios from "axios";

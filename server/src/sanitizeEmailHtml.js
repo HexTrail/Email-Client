@@ -1,3 +1,5 @@
+// Restricts email HTML to a safe subset before it is stored or displayed.
+// Restricts email HTML to a safe subset before it is stored or displayed.
 import sanitizeHtml from 'sanitize-html';
 
 const emailHtmlOptions = {

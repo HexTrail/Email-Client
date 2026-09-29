@@ -1,3 +1,5 @@
+// Displays a selected conversation and its message details.
+// Displays a selected conversation and its message details.
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { FiArrowLeft, FiDownload, FiMoreHorizontal, FiPaperclip } from "react-icons/fi";

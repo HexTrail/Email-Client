@@ -1,3 +1,5 @@
+// Wraps Twilio Verify operations for phone sign-in and recovery codes.
+// Wraps Twilio Verify operations for phone sign-in and recovery codes.
 import twilio from 'twilio';
 
 function getVerifyService() {

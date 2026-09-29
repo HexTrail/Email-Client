@@ -1,3 +1,5 @@
+// Loads inbox data and coordinates the authenticated conversation view.
+// Loads inbox data and coordinates the authenticated conversation view.
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";

@@ -1,3 +1,5 @@
+// Renders the inbox header with search and account controls.
+// Renders the inbox header with search and account controls.
 import { useState } from "react";
 import { FiMenu, FiMoreHorizontal, FiSearch, FiX } from "react-icons/fi";
 import PhonemailLogo from "../PhonemailLogo.tsx";

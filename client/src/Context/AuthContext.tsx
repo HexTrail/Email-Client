@@ -1,3 +1,5 @@
+// Shares session state and authentication actions across the client.
+// Shares session state and authentication actions across the client.
 import {
   createContext,
   useContext,

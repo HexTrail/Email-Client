@@ -1,3 +1,5 @@
+// Implements account sign-in and starts phone verification.
+// Implements account sign-in and starts phone verification.
 import { useState } from "react";
 import PhonemailLogo from "../components/PhonemailLogo.tsx";
 import PhoneNumberField from "../components/PhoneNumberField.tsx";

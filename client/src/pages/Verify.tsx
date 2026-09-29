@@ -1,3 +1,5 @@
+// Collects and submits the one-time code for phone verification.
+// Collects and submits the one-time code for phone verification.
 import { useState } from "react";
 import PhonemailLogo from "../components/PhonemailLogo.tsx";
 import { useNavigate } from "react-router-dom";

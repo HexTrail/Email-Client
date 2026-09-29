@@ -1,3 +1,5 @@
+// Defines shared types and folder options for inbox components.
+// Defines shared types and folder options for inbox components.
 import { FiMessageCircle, FiShield, FiTrash2 } from "react-icons/fi";
 
 export type Conversation = {

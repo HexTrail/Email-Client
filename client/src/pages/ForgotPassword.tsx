@@ -1,3 +1,5 @@
+// Implements the phone-based password recovery flow.
+// Implements the phone-based password recovery flow.
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";

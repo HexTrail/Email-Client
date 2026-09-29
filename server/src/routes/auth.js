@@ -1,3 +1,5 @@
+// Provides account, sign-in, phone-verification, and password-recovery routes.
+// Provides account, sign-in, phone-verification, and password-recovery routes.
 import express from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';

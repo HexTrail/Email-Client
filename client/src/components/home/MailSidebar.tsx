@@ -1,3 +1,5 @@
+// Renders inbox folder navigation and its selection controls.
+// Renders inbox folder navigation and its selection controls.
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import PhonemailLogo from "../PhonemailLogo.tsx";
 import { folders, type Folder } from "./homeTypes.ts";

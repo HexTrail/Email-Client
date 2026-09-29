@@ -1,3 +1,5 @@
+// Defines application routes and guards the authenticated inbox.
+// Defines application routes and guards the authenticated inbox.
 import { Link, Route, Routes } from 'react-router-dom'
 import Signin from './pages/Signin.tsx'
 import Home from './pages/Home.tsx'

@@ -1,3 +1,5 @@
+// Defines the MongoDB schema for phone-based user accounts.
+// Defines the MongoDB schema for phone-based user accounts.
 import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema({
