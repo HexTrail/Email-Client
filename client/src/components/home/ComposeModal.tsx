@@ -6,6 +6,13 @@ import axios from "axios";
 import { FiBold, FiItalic, FiLink, FiList, FiPaperclip, FiSend, FiUnderline, FiX } from "react-icons/fi";
 
 const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
+const COUNTRY_CODE_REMINDER = "Add the country code, for example +14155550123@phonemail.test.";
+
+function isMissingCountryCode(recipient: string) {
+  const localPart = recipient.includes("@") ? recipient.slice(0, recipient.lastIndexOf("@")) : recipient;
+  const digits = localPart.replace(/[\s().-]/g, "");
+  return /^\d{7,15}$/.test(digits);
+}
 
 function formatFileSize(size: number) {
   if (size < 1024) return `${size} B`;
@@ -38,6 +45,10 @@ export default function ComposeModal({ open, onClose, onSent }: ComposeModalProp
   const [error, setError] = useState("");
   const editorRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const recipientMissingCountryCode = to
+    .split(",")
+    .map((recipient) => recipient.trim())
+    .find(isMissingCountryCode);
 
   if (!open) return null;
 
@@ -52,6 +63,10 @@ export default function ComposeModal({ open, onClose, onSent }: ComposeModalProp
 
     if (!recipients.length) {
       setError("Add at least one recipient.");
+      return;
+    }
+    if (recipients.some(isMissingCountryCode)) {
+      setError(COUNTRY_CODE_REMINDER);
       return;
     }
     if (!subject.trim()) {
@@ -136,13 +151,23 @@ export default function ComposeModal({ open, onClose, onSent }: ComposeModalProp
             <span>To</span>
             <input
               value={to}
-              onChange={(event) => setTo(event.target.value)}
+              onChange={(event) => {
+                setTo(event.target.value);
+                setError("");
+              }}
               placeholder="phone@phonemail.test"
+              aria-describedby="compose-recipient-help"
+              aria-invalid={recipientMissingCountryCode ? true : undefined}
               autoComplete="email"
               autoFocus
               disabled={sending}
             />
-            <small>Separate multiple recipients with commas.</small>
+            <small id="compose-recipient-help">Separate multiple recipients with commas.</small>
+            {recipientMissingCountryCode && (
+              <small className="compose-recipient-warning" role="status" aria-live="polite">
+                Include the country code, e.g. +14155550123@phonemail.test.
+              </small>
+            )}
           </label>
           <label className="compose-field">
             <span>Subject</span>

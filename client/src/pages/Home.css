@@ -258,6 +258,7 @@
 .compose-attachment button svg { width: 13px; height: 13px; }
 .compose-attachment-limit { margin-left: 2px; }
 .compose-field small { color: #98a29d; font-size: 9px; font-weight: 400; }
+.compose-field .compose-recipient-warning { color: #9a6422; }
 .compose-message-field { margin-bottom: 10px; }
 .compose-error { margin: 0 0 14px; color: #a34a3d; font-size: 10px; }
 .compose-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
