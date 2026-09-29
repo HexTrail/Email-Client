@@ -20,6 +20,7 @@ import { simpleParser } from 'mailparser';
 import Conversation from './Models/Conversation.js';
 import Message from './Models/Message.js';
 import sanitizeEmailHtml from './sanitizeEmailHtml.js';
+import { smtpTlsOptions } from './smtpSecurity.js';
 
 
 const DOMAIN = (process.env.DOMAIN || 'phonemail.test').trim().toLowerCase();
@@ -83,14 +84,16 @@ async function persistMessage({ from, to, subject, text, html, attachments = [],
   return message;
 }
 
-export function createSmtpServer({ domain = DOMAIN, deliverMessage = persistMessage } = {}) {
+export function createSmtpServer({
+  domain = DOMAIN,
+  deliverMessage = persistMessage,
+} = {}) {
   const acceptedDomain = domain.trim().toLowerCase();
 
   return new SMTPServer({
-  // No TLS cert needed for local dev — plaintext is fine on localhost.
   secure: false,
-  authOptional: true, // accept mail without SMTP AUTH (fine for local/dev)
-  disabledCommands: ["STARTTLS"],
+  ...smtpTlsOptions,
+  authOptional: true,
 
   // Called once per recipient in "RCPT TO:<...>". Reject anything not
   // on our own domain so this server can't be used to relay spam to
@@ -106,6 +109,11 @@ export function createSmtpServer({ domain = DOMAIN, deliverMessage = persistMess
   },
 
   onMailFrom(address, session, callback) {
+    if (!session.secure) {
+      const error = new Error('STARTTLS is required before sending mail');
+      error.responseCode = 530;
+      return callback(error);
+    }
     if (!isOurDomain(address.address, acceptedDomain)) {
       const error = new Error(`Only @${acceptedDomain} sender addresses are accepted`);
       error.responseCode = 550;
@@ -118,9 +126,16 @@ export function createSmtpServer({ domain = DOMAIN, deliverMessage = persistMess
   onData(stream, session, callback) {
     simpleParser(stream)
       .then(async (parsed) => {
-        const from = parsed.from?.value?.[0]?.address || session.envelope.mailFrom.address;
+        const envelopeFrom = session.envelope.mailFrom.address;
+        const headerSenders = parsed.from?.value || [];
+        const from = headerSenders[0]?.address || envelopeFrom;
         const to = (session.envelope.rcptTo || []).map((recipient) => recipient.address);
-        if (!to.length || !isOurDomain(from, acceptedDomain)) {
+        if (
+          !to.length ||
+          !isOurDomain(from, acceptedDomain) ||
+          headerSenders.length > 1 ||
+          from.toLowerCase() !== envelopeFrom.toLowerCase()
+        ) {
           throw new Error('Message has an invalid sender or no recipients');
         }
 

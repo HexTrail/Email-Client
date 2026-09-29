@@ -225,8 +225,6 @@ The backend loads configuration from `server/.env`. The root `.env.example` list
 | `FRONTEND_URI` | Credentialed CORS origin; Compose default is `http://localhost:3000`, local Vite uses `http://localhost:5173` |
 | `JWT_SECRET` | Secret used to sign session tokens; use a long random value |
 | `PORT` or `API_PORT` | Express port; defaults to `5000` |
-| `SMTP_PORT` | SMTP listener port; defaults to `2525` |
-| `SMTP_HOST` | Nodemailer target; defaults to `127.0.0.1` |
 | `DOMAIN` | Accepted local email domain; defaults to `phonemail.test` |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | Twilio credentials; the Auth Token is used to verify signed voice webhooks |
 | `TWILIO_VERIFY_SERVICE_SID` | Verify service for sign-in and recovery codes |
@@ -234,7 +232,9 @@ The backend loads configuration from `server/.env`. The root `.env.example` list
 
 The receiving Twilio phone number is configured in the Twilio Console, not in `server/.env`. Set its **A call comes in** Voice webhook to the tunnel URL plus `/voice/incoming`. `TWILIO_FROM_NUMBER` is only for optional outgoing confirmation SMS; the IVR identifies the caller from Twilio's request and uses that caller's phone number for the account.
 
-Compose requires `server/.env` to exist. It exposes MongoDB on host port `27018`, the API and SMTP listener on `5000` and `2525`, and the frontend on `3000`. The `ivr-tunnel` service starts a temporary public Cloudflare Quick Tunnel and prints its URL in that container's logs. No purchased domain, separate tunnel account, or separate tunnel installation is needed. Testers paste the printed webhook URL into the Twilio Console once per tunnel start.
+Compose requires `server/.env` to exist. It exposes MongoDB on host port `27018`, the API on `5000`, and the frontend on `3000`. SMTP is private to the backend container and is not published as a host port. The `ivr-tunnel` service starts a temporary public Cloudflare Quick Tunnel and prints its URL in that container's logs. No purchased domain, separate tunnel account, or separate tunnel installation is needed. Testers paste the printed webhook URL into the Twilio Console once per tunnel start.
+
+SMTP requires STARTTLS, but not SMTP AUTH: the listener binds only to `127.0.0.1` inside the backend container, and no Docker port is published. The API authenticates users before accepting send requests; the private SMTP hop is not reachable from the frontend or other containers. A temporary localhost certificate is generated and trusted by the internal mailer, so local setup needs no SMTP credentials or certificate files.
 
 ### IVR Setup in Compose
 

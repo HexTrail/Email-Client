@@ -1,14 +1,11 @@
 // mailer.js
 //
-// Wraps nodemailer to hand outgoing mail to OUR OWN smtp-server.js
-// over SMTP (localhost:SMTP_PORT). This is deliberate, not a
-// shortcut: it means "sending" goes through the exact same code
-// path a real mail client would use, so if you later point this at
-// a different SMTP host (a real provider, or another instance of
-// this same server on another machine) nothing else changes.
+// Sends application mail through this process's loopback-only SMTP listener.
+// STARTTLS protects the internal hop; HTTP routes handle user authentication.
 
 import 'dotenv/config';
 import nodemailer from 'nodemailer';
+import { smtpTlsCa } from './smtpSecurity.js';
 
 const SMTP_PORT = Number(process.env.SMTP_PORT || 2525);
 
@@ -16,8 +13,8 @@ const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "127.0.0.1",
   port: SMTP_PORT,
   secure: false,
-  ignoreTLS: true, // no cert configured — fine for local dev
-  tls: { rejectUnauthorized: false },
+  requireTLS: true,
+  tls: { ca: smtpTlsCa },
 });
 
 /**

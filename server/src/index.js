@@ -65,9 +65,9 @@ function startSmtpServer() {
     };
 
     smtpServer.once('error', onError);
-    smtpServer.listen(SMTP_PORT, () => {
+    smtpServer.listen(SMTP_PORT, '127.0.0.1', () => {
       smtpServer.removeListener('error', onError);
-      console.log(`SMTP server listening on port ${SMTP_PORT}`);
+      console.log(`SMTP server listening on 127.0.0.1:${SMTP_PORT}`);
       resolve();
     });
   });

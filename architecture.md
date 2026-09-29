@@ -197,9 +197,9 @@ The route does not write directly to MongoDB. It delegates message delivery to t
 
 - `host`: `127.0.0.1` or `SMTP_HOST`
 - `port`: `SMTP_PORT` (default `2525`)
-- `ignoreTLS: true`
+- STARTTLS is required. The listener binds to `127.0.0.1` inside the backend container, so SMTP AUTH is unnecessary for this private process-to-process hop.
 
-This is a deliberate design choice: the application treats outbound mail as if it were flowing through a real SMTP relay, even though delivery is local-only.
+The backend generates an ephemeral localhost certificate, and the mailer trusts that exact certificate. Compose does not publish the SMTP port; only the authenticated API can initiate mail delivery.
 
 ---
 
@@ -211,7 +211,7 @@ This file creates a real SMTP server using `smtp-server` and `mailparser`.
 
 ### Why this matters
 
-The app is built as if the domain is a real email domain. Incoming mail only passes if the sender and recipient are on the configured domain, such as `@phonemail.test`.
+The app is built as if the domain is a real email domain. Mail only passes if the envelope sender and recipients are on the configured domain, such as `@phonemail.test`; a supplied `From` header must match the envelope sender. SMTP requires STARTTLS and is reachable only over backend loopback.
 
 This prevents open relaying and keeps mail inside the project’s own address space.
 
