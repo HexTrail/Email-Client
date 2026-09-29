@@ -89,21 +89,6 @@ router.post('/send-email', authMiddleware, async (req, res) => {
         });
     }
 
-    const domain = (process.env.DOMAIN || 'phonemail.test').trim().toLowerCase();
-    for (const recipient of recipients) {
-        const separator = recipient.lastIndexOf('@');
-        if (separator <= 0 || recipient.slice(separator + 1).toLowerCase() !== domain) continue;
-
-        const recipientPhone = recipient.slice(0, separator);
-        const recipientUser = await UsersModel.findOne({ phone: recipientPhone });
-        if (!recipientUser?.phoneVerified) {
-            return res.status(404).json({
-                success: false,
-                message: `The recipient address ${recipient} doesn't exist.`,
-            });
-        }
-    }
-
     let attachments;
     try {
         attachments = parseAttachments(req.body.attachments);
@@ -114,6 +99,21 @@ router.post('/send-email', authMiddleware, async (req, res) => {
     const from = getMailboxAddress(req.user.phone);
 
     try {
+        const domain = (process.env.DOMAIN || 'phonemail.test').trim().toLowerCase();
+        for (const recipient of recipients) {
+            const separator = recipient.lastIndexOf('@');
+            if (separator <= 0 || recipient.slice(separator + 1).toLowerCase() !== domain) continue;
+
+            const recipientPhone = recipient.slice(0, separator);
+            const recipientUser = await UsersModel.findOne({ phone: recipientPhone });
+            if (!recipientUser?.phoneVerified) {
+                return res.status(404).json({
+                    success: false,
+                    message: `The recipient address ${recipient} doesn't exist.`,
+                });
+            }
+        }
+
         const safeText = plainText || emailHtmlToText(safeHtml).trim();
         await sendMailMessage({
             from,
