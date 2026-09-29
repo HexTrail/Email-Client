@@ -33,6 +33,15 @@ function phoneFromAddress(address) {
   return address.slice(0, address.lastIndexOf('@'));
 }
 
+export function isLikelySpam({ subject = '', text = '', html = '' }) {
+  const content = `${subject}\n${text}\n${html}`.toLowerCase();
+  const suspiciousSubject = /\b(?:winner|won a prize|claim your|free money|limited time|act now|verify your account|gift card)\b/i.test(subject);
+  const suspiciousBody = /\b(?:click here|claim now|guaranteed|risk[- ]free|wire transfer|crypto investment)\b/i.test(content);
+  const linkCount = (content.match(/https?:\/\//g) || []).length;
+
+  return Number(suspiciousSubject) + Number(suspiciousBody) + Number(linkCount >= 3) >= 2;
+}
+
 async function persistMessage({ from, to, subject, text, html, attachments = [], date }) {
   const sender = from.toLowerCase();
   const recipients = to.map((address) => address.toLowerCase());
@@ -61,6 +70,10 @@ async function persistMessage({ from, to, subject, text, html, attachments = [],
     subject,
     text,
     html,
+    recipientState: Object.fromEntries(recipients.map((address) => [
+      phoneFromAddress(address),
+      { folder: isLikelySpam({ subject, text, html }) ? 'spam' : 'inbox' },
+    ])),
     attachments: attachments.map(({ filename, contentType, size, content }) => ({
       filename,
       contentType,

@@ -1,6 +1,6 @@
 // Renders the inbox conversation summaries and selection controls.
 // Renders the inbox conversation summaries and selection controls.
-import { FiArchive, FiRefreshCw } from "react-icons/fi";
+import { FiRefreshCw } from "react-icons/fi";
 import type { Conversation, Folder } from "./homeTypes.ts";
 import { folders } from "./homeTypes.ts";
 import { formatAddress, formatTime, initials } from "./homeUtils.ts";
@@ -52,22 +52,21 @@ export default function ConversationList({
         </button>
       </div>
 
-      {activeFolder === "conversations" ? (
-        <>
-          <div className="list-meta"><span>{conversations.length} conversations</span><span>Most recent</span></div>
-          <div className="conversation-list">
-            {loading ? (
-              <div className="list-message">Loading your conversations...</div>
-            ) : loadError ? (
-              <div className="list-message error-message">
-                <span>{loadError}</span>
-                <button onClick={onRetry}>Try again</button>
-              </div>
-            ) : filteredConversations.length === 0 ? (
-              <div className="list-message">
-                {search ? "No conversations match your search." : "Nothing here yet. New conversations will show up here."}
-              </div>
-            ) : filteredConversations.map((conversation, index) => {
+      <>
+        <div className="list-meta"><span>{conversations.length} {activeFolder === "conversations" ? "conversations" : "threads"}</span><span>Most recent</span></div>
+        <div className="conversation-list">
+          {loading ? (
+            <div className="list-message">Loading messages...</div>
+          ) : loadError ? (
+            <div className="list-message error-message">
+              <span>{loadError}</span>
+              <button onClick={onRetry}>Try again</button>
+            </div>
+          ) : filteredConversations.length === 0 ? (
+            <div className="list-message">
+              {search ? "No conversations match your search." : `Nothing in ${folderLabel.toLowerCase()} yet.`}
+            </div>
+          ) : filteredConversations.map((conversation, index) => {
               const participantNames = conversation.participants
                 .filter((participant) => participant !== currentUserPhone)
                 .map(formatAddress);
@@ -89,16 +88,9 @@ export default function ConversationList({
                   <span className="row-indicator" />
                 </button>
               );
-            })}
-          </div>
-        </>
-      ) : (
-        <div className="folder-empty">
-          <span className="folder-empty-icon"><FiArchive /></span>
-          <strong>{activeFolder[0].toUpperCase() + activeFolder.slice(1)} is ready</strong>
-          <p>This folder will show messages once folder filtering is connected to your account.</p>
+          })}
         </div>
-      )}
+      </>
     </section>
   );
 }

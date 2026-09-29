@@ -1,24 +1,29 @@
 // Displays a selected conversation and its message details.
-// Displays a selected conversation and its message details.
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { FiArrowLeft, FiDownload, FiMoreHorizontal, FiPaperclip } from "react-icons/fi";
-import type { Conversation, EmailMessage } from "./homeTypes.ts";
+import { FiArrowLeft, FiDownload, FiMoreHorizontal, FiPaperclip, FiRotateCcw, FiShield, FiTrash2 } from "react-icons/fi";
+import type { Conversation, EmailMessage, Folder } from "./homeTypes.ts";
 import { formatAddress, formatTime, initials } from "./homeUtils.ts";
 
 type ConversationDetailProps = {
   conversation?: Conversation;
   currentUserPhone?: string;
+  activeFolder: Folder;
   onBack: () => void;
+  onMessageMoved: () => void;
 };
 
 export default function ConversationDetail({
   conversation,
   currentUserPhone,
+  activeFolder,
   onBack,
+  onMessageMoved,
 }: ConversationDetailProps) {
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [copyMessage, setCopyMessage] = useState("");
+  const [movingMessageId, setMovingMessageId] = useState<string | null>(null);
+  const [messageActionError, setMessageActionError] = useState("");
   const [messageResult, setMessageResult] = useState<{
     conversationId: string;
     messages: EmailMessage[];
@@ -32,7 +37,10 @@ export default function ConversationDetail({
     }
 
     let active = true;
-    axios.get(`/api/conversations/${conversationId}/messages`, { withCredentials: true })
+    axios.get(`/api/conversations/${conversationId}/messages`, {
+      params: { folder: activeFolder },
+      withCredentials: true,
+    })
       .then((response) => {
         if (active) {
           setMessageResult({
@@ -47,7 +55,7 @@ export default function ConversationDetail({
       });
 
     return () => { active = false; };
-  }, [conversationId]);
+  }, [activeFolder, conversationId]);
 
   const resultMatchesConversation = messageResult.conversationId === conversationId;
   const visibleMessages = resultMatchesConversation ? messageResult.messages : [];
@@ -76,6 +84,19 @@ export default function ConversationDetail({
       setCopyMessage("Could not copy address");
     }
     setOptionsOpen(false);
+  }
+
+  async function moveMessage(messageId: string, folder: "spam" | "trash" | "restore") {
+    setMovingMessageId(messageId);
+    setMessageActionError("");
+    try {
+      await axios.patch(`/api/messages/${messageId}/folder`, { folder }, { withCredentials: true });
+      onMessageMoved();
+    } catch {
+      setMessageActionError("We couldn't update this message.");
+    } finally {
+      setMovingMessageId(null);
+    }
   }
 
   return (
@@ -172,6 +193,51 @@ export default function ConversationDetail({
                         );
                       })}
                     </div>
+                  )}
+                  <div className="message-actions">
+                    {activeFolder === "trash" ? (
+                      <button
+                        className="message-action"
+                        type="button"
+                        title="Restore message"
+                        aria-label="Restore message"
+                        disabled={movingMessageId === message._id}
+                        onClick={() => void moveMessage(message._id, "restore")}
+                      ><FiRotateCcw /></button>
+                    ) : (
+                      <>
+                        {activeFolder === "spam" ? (
+                          <button
+                            className="message-action"
+                            type="button"
+                            title="Not spam"
+                            aria-label="Not spam"
+                            disabled={movingMessageId === message._id}
+                            onClick={() => void moveMessage(message._id, "restore")}
+                          ><FiRotateCcw /></button>
+                        ) : !isOwnMessage && message.to.some((recipient) => recipient.toLowerCase().startsWith(`${currentUserPhone}@`.toLowerCase())) ? (
+                          <button
+                            className="message-action"
+                            type="button"
+                            title="Move to spam"
+                            aria-label="Move to spam"
+                            disabled={movingMessageId === message._id}
+                            onClick={() => void moveMessage(message._id, "spam")}
+                          ><FiShield /></button>
+                        ) : null}
+                        <button
+                          className="message-action"
+                          type="button"
+                          title="Move to trash"
+                          aria-label="Move to trash"
+                          disabled={movingMessageId === message._id}
+                          onClick={() => void moveMessage(message._id, "trash")}
+                        ><FiTrash2 /></button>
+                      </>
+                    )}
+                  </div>
+                  {messageActionError && movingMessageId === null && (
+                    <p className="message-action-error" role="alert">{messageActionError}</p>
                   )}
                 </article>
               );

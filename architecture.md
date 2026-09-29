@@ -243,7 +243,11 @@ It:
   - `text`
   - `html`
   - `date`
+   - a per-recipient `recipientState` folder initialized as `inbox` or `spam`
+   - parsed attachment content and metadata
 - updates the conversation's `lastMessageAt`, `lastMessagePreview`, and `lastMessageFrom`
+
+Before persistence, `isLikelySpam()` applies a small heuristic using suspicious subject phrases, suspicious content phrases, and a high URL count (three or more). At least two matching signals place each recipient's copy in Spam. This is basic filtering, not a production spam engine.
 
 This means that the database is not populated by the HTTP API directly for outgoing email. Instead, the SMTP layer is the canonical delivery path and database writer.
 
@@ -280,7 +284,7 @@ The model adds an index to enforce a single 1:1 conversation per pair of partici
 - reply-chain metadata
 - `createdAt` / `updatedAt`
 
-The app does not currently fully implement all folder and reply behavior. The schema is prepared for it, but the current UI mainly reads the latest message summary and list of conversations.
+Recipient folder state is independent for each phone number, so moving a group message for one recipient does not move it for the others. A recipient can have `inbox`, `spam`, or `trash` state; the sender copy has `sent`, `drafts`, or `trash` state. Missing legacy recipient state is interpreted as `inbox`. Trash is reversible and does not permanently delete a message. Reply-chain behavior remains separate from these folder actions.
 
 ---
 
@@ -289,20 +293,33 @@ The app does not currently fully implement all folder and reply behavior. The sc
 The authenticated inbox fetches conversation summaries from the API via:
 
 ```http
-GET /api/conversations
+GET /api/conversations?folder=conversations
 ```
 
-`Home.tsx` performs the request, stores the result in local `conversations` state, and selects a conversation when the user clicks it.
+The `folder` parameter accepts `conversations`, `spam`, or `trash`. The API derives each folder's conversations from messages visible to the authenticated user and uses the newest visible message for its summary. `Home.tsx` loads the selected folder and selects a conversation when the user clicks it. The detail panel fetches its ordered message history with:
 
-The UI splits the inbox into:
+```http
+GET /api/conversations/:conversationId/messages?folder=conversations
+```
+
+Messages can be moved or restored with the authenticated endpoint:
+
+```http
+PATCH /api/messages/:messageId/folder
+Content-Type: application/json
+
+{ "folder": "trash" }
+```
+
+The request accepts `inbox`, `spam`, `trash`, or `restore`. Only received mail can be marked as spam. `restore` returns received mail to `inbox` and a sender's own copy to `sent`; both are shown in the Conversations view because there is no separate Sent sidebar folder.
+
+The UI splits the mailbox into:
 
 - left sidebar for folders and compose action
 - middle list pane showing conversation rows
-- right detail pane showing the selected conversation summary
+- right detail pane showing the selected conversation's messages and per-message folder actions
 
-The current fetch is intentionally simple: the API returns a list of conversation documents, and the detail pane mostly displays the denormalized `lastMessagePreview` rather than a full message history.
-
-That means the app is optimized around fast inbox preview rather than complex threading detail retrieval.
+The list summary is derived from the latest message visible in the selected folder. Message history, Spam, Trash, and restore actions are available; advanced search and permanent deletion are not implemented.
 
 ---
 
@@ -336,14 +353,14 @@ This is how the app supports “phone-based account creation” via a call inste
 6. Client calls `POST /api/auth/verify-otp`.
 7. Backend confirms the code, marks the user as verified, and issues a JWT cookie.
 8. User enters the inbox.
-9. Client fetches `GET /api/conversations` with credentials.
-10. The API reads MongoDB conversation documents filtered by the authenticated phone.
+9. Client fetches `GET /api/conversations?folder=conversations` with credentials.
+10. The API finds messages visible to the authenticated phone and returns their conversation summaries.
 11. User clicks compose and submits `POST /api/send-email`.
 12. Server derives sender mail address from the phone and uses Nodemailer.
 13. Nodemailer sends the message to the local SMTP listener.
-14. The SMTP server validates the domain, parses the raw email, and persists it to MongoDB.
+14. The SMTP server validates the domain, parses the raw email, runs the basic spam heuristic, and persists it with per-recipient folder state and attachments.
 15. The same message updates the conversation summary and timeline metadata.
-16. The conversation list refreshes and renders the new preview.
+16. The conversation list refreshes and renders the newest message visible in the selected folder.
 
 ---
 

@@ -12,8 +12,11 @@ import MailSidebar from "../components/home/MailSidebar.tsx";
 import type { Conversation, Folder } from "../components/home/homeTypes.ts";
 import "./Home.css";
 
-async function fetchConversations(): Promise<Conversation[]> {
-  const response = await axios.get("/api/conversations", { withCredentials: true });
+async function fetchConversations(folder: Folder): Promise<Conversation[]> {
+  const response = await axios.get("/api/conversations", {
+    params: { folder },
+    withCredentials: true,
+  });
   return Array.isArray(response.data.conversations) ? response.data.conversations : [];
 }
 
@@ -30,11 +33,11 @@ function Home() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
-  async function loadConversations() {
+  async function loadConversations(folder: Folder = activeFolder) {
     setLoading(true);
     setLoadError("");
     try {
-      const results = await fetchConversations();
+      const results = await fetchConversations(folder);
       setConversations(results);
       setSelectedId((current) => current && results.some((item) => item._id === current) ? current : null);
     } catch {
@@ -46,7 +49,7 @@ function Home() {
 
   useEffect(() => {
     let active = true;
-    fetchConversations()
+    fetchConversations("conversations")
       .then((results) => {
         if (active) setConversations(results);
       })
@@ -77,7 +80,9 @@ function Home() {
         mobileOpen={mobileFoldersOpen}
         onFolderSelect={(folder) => {
           setActiveFolder(folder);
+          setSelectedId(null);
           setMobileFoldersOpen(false);
+          void loadConversations(folder);
         }}
         onToggleCollapse={() => setCollapsed(!collapsed)}
         onToggleMobile={() => setMobileFoldersOpen(!mobileFoldersOpen)}
@@ -109,9 +114,14 @@ function Home() {
             onRetry={() => void loadConversations()}
           />
           <ConversationDetail
-            conversation={activeFolder === "conversations" ? selectedConversation : undefined}
+            conversation={selectedConversation}
             currentUserPhone={user?.phone}
+            activeFolder={activeFolder}
             onBack={() => setSelectedId(null)}
+            onMessageMoved={() => {
+              setSelectedId(null);
+              void loadConversations();
+            }}
           />
         </div>
       </section>

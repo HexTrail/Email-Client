@@ -28,10 +28,12 @@ export type EmailMessage = {
   text: string;
   html: string;
   date: string;
+  folder: MessageFolder;
   attachments: MessageAttachment[];
 };
 
 export type Folder = "conversations" | "spam" | "trash";
+export type MessageFolder = "inbox" | "spam" | "trash" | "sent";
 
 export const folders: { id: Folder; label: string; icon: typeof FiMessageCircle }[] = [
   { id: "conversations", label: "Conversations", icon: FiMessageCircle },

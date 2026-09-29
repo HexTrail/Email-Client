@@ -134,6 +134,12 @@
 .message-sender span, .message-header time { color: #98a19d; font-size: 9px; }
 .message-text { margin: 12px 0 14px; color: #46524d; font-size: 10px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
 .message-footnote { color: #9ba49f; font-size: 8px; }
+.message-actions { display: flex; justify-content: flex-end; gap: 3px; margin-top: 5px; }
+.message-action { display: grid; width: 30px; height: 30px; place-items: center; border: 0; border-radius: 6px; color: #7e8983; background: transparent; cursor: pointer; }
+.message-action:hover { color: var(--green); background: #f0f5f1; }
+.message-action:disabled { cursor: wait; opacity: .55; }
+.message-action svg { width: 14px; height: 14px; }
+.message-action-error { margin: 0; color: #a34a3d; text-align: right; font-size: 9px; }
 .thread-reply-hint { width: min(530px, 100%); margin-top: 15px; padding: 12px; border: 1px dashed #dce5dc; border-radius: 8px; color: #9aa49e; text-align: center; font-size: 9px; }
 .detail-empty { display: flex; align-items: center; justify-content: center; flex: 1; flex-direction: column; padding: 24px; text-align: center; }
 .detail-empty h2 { margin: 15px 0 6px; color: #34423b; font-family: Georgia, serif; font-size: 22px; font-weight: 500; }

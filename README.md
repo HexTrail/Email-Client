@@ -51,8 +51,10 @@ PhoneMail is an in-development email client that uses phone numbers as account i
 | HTTP-only JWT session cookie and protected API routes | Implemented |
 | IVR account creation through a Twilio voice webhook | Implemented |
 | Compose and send plain-text mail to local-domain addresses | Implemented through local SMTP |
-| Conversation list and latest-message preview | Implemented |
-| Full message history, folder actions, attachment upload, and search | Not implemented |
+| Conversation list, full message history, and message attachments | Implemented |
+| Per-user Conversations, Spam, and Trash folders with message restore | Implemented |
+| Incoming spam classification | Basic content heuristic; not a replacement for a dedicated spam service |
+| Advanced mail search | Not implemented; search currently filters conversation summaries |
 | Redis caching and end-to-end encryption | Planned; not implemented |
 
 ## Architecture
@@ -125,16 +127,24 @@ sequenceDiagram
     API->>Mailer: Send using configured SMTP host
     Mailer->>SMTP: Submit SMTP envelope and message data
     SMTP->>SMTP: Check local domain and parse message
-    SMTP->>DB: Find or create conversation, insert message, and update summary
+    SMTP->>SMTP: Apply basic spam heuristic for each recipient
+    SMTP->>DB: Find or create conversation, insert message and recipient folder state, and update summary
     SMTP-->>Mailer: Accept or reject
     Mailer-->>API: Delivery result
     API-->>Client: Return success or error
-    Client->>API: GET /api/conversations with session cookie
-    API->>DB: Find conversations containing the user's phone
+    Client->>API: GET /api/conversations?folder=conversations with session cookie
+    API->>DB: Find conversations with messages visible in the user's folder
     API-->>Client: Return conversation summaries
+    Client->>API: GET /api/conversations/:id/messages?folder=conversations
+    API->>DB: Return ordered messages visible to the user
+    User->>Client: Move a message to Spam or Trash, or restore it
+    Client->>API: PATCH /api/messages/:id/folder
+    API->>DB: Update only the authenticated user's message copy
 ```
 
-The conversation endpoint currently returns summaries, not full message history. The detail panel displays the latest-message preview saved on the conversation.
+The `folder` query accepts `conversations`, `spam`, or `trash`. Conversations includes received messages in the recipient's `inbox` state and the user's sent copy. Folder state is per recipient, so moving a received message does not change another recipient's view. Restoring a received message returns it to Conversations; restoring the sender's copy returns it to the Conversations view in its `sent` state. Trash is reversible and does not permanently delete messages.
+
+Incoming SMTP messages are scored using three simple signals: suspicious subject phrases, suspicious message-content phrases, and three or more URLs. A message is automatically placed in Spam when at least two signals match. This heuristic is intentionally basic and can produce false positives or miss spam.
 
 ## Database Models
 
@@ -186,9 +196,9 @@ erDiagram
 
 ### Message
 
-`Message` references one conversation and stores sender/recipient addresses, subject, text/HTML bodies, attachment metadata, and dates. `recipientState` defines per-recipient read, favorite, and folder values; `senderState` defines sent, drafts, and trash state. Reply-chain fields connect a reply to its parent and mark whether the original has been answered. These fields are in the schema, but routes that manage most of these mailbox states are not yet implemented.
+`Message` references one conversation and stores sender/recipient addresses, subject, text/HTML bodies, attachment content and metadata, and dates. `recipientState` defines per-recipient read, favorite, and folder values (`inbox`, `spam`, or `trash`); `senderState` defines the sender's `sent`, `drafts`, or `trash` state. SMTP initializes recipient folder state, including the result of spam classification. Folder changes update only the authenticated user's copy. Older records without explicit recipient state are treated as inbox messages. Reply-chain fields connect a reply to its parent and mark whether the original has been answered.
 
-The current SMTP persistence path creates the message and updates the conversation summary, but does not populate recipient state or attachment records. No database migration, cascading delete, or retention policy is configured.
+Trash is a reversible folder rather than permanent deletion. No database migration, cascading delete, or retention policy is configured.
 
 ## HTTP API
 
@@ -204,11 +214,15 @@ Routes are mounted under `/api` unless the path begins with `/voice`. Protected 
 | `POST` | `/api/signout` | Session | Clear session cookie |
 | `POST` | `/api/send-email` | Session | Send plain-text mail through local SMTP |
 | `GET` | `/api/emails` | Session | List messages addressed to the current user's generated address |
-| `GET` | `/api/conversations` | Session | List conversation summaries for the current user |
+| `GET` | `/api/conversations` | Session | List visible conversation summaries; optional `folder` is `conversations`, `spam`, or `trash` |
+| `GET` | `/api/conversations/:conversationId/messages?folder=...` | Session | List ordered messages visible in the selected folder |
+| `PATCH` | `/api/messages/:messageId/folder` | Session | Move a message to `inbox`, `spam`, or `trash`, or use `restore` |
 | `POST` | `/voice/incoming` | Twilio webhook | Return IVR menu as TwiML |
 | `POST` | `/voice/menu` | Twilio webhook | Process IVR selection and create account |
 
 `POST /api/send-email` accepts `to` as a string or an array of strings, plus string `subject` and `text`. SMTP accepts only sender and recipient addresses at the configured `DOMAIN`, which defaults to `phonemail.test`.
+
+Folder routes verify that the authenticated user owns the message as a recipient or sender. Only received messages can be marked as spam. The `restore` action returns received mail to `inbox` and sent mail to `sent`.
 
 ## Requirements and Configuration
 
