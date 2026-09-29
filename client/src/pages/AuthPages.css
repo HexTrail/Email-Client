@@ -80,6 +80,17 @@
 
 .auth-input::placeholder { color: #a2aaa5; }
 
+.auth-phone-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.55fr);
+  gap: 8px;
+}
+
+.auth-country-code {
+  min-width: 0;
+  padding-right: 8px;
+}
+
 .auth-code-input {
   height: 52px;
   text-align: center;

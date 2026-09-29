@@ -1,11 +1,13 @@
 import { useState } from "react";
 import PhonemailLogo from "../components/PhonemailLogo.tsx";
+import PhoneNumberField from "../components/PhoneNumberField.tsx";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../Context/AuthContext.tsx";
 import "./AuthPages.css";
 
 function Signin() {
-  const [phone, setPhone] = useState("");
+  const [countryCode, setCountryCode] = useState("+91");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
   const [error, setError] = useState("");
@@ -14,8 +16,9 @@ function Signin() {
   async function sendData(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
+    const phone = `${countryCode}${phoneNumber}`;
     if (!/^\+[1-9]\d{7,14}$/.test(phone)) {
-      setError("Enter your phone number with country code, e.g. +15551234567.");
+      setError("Enter a valid phone number.");
       return;
     }
     if (
@@ -48,15 +51,12 @@ function Signin() {
         <form onSubmit={sendData} className="auth-form">
           <div className="auth-field">
             <label htmlFor="phone">Phone number</label>
-            <input
-              type="text"
+            <PhoneNumberField
               id="phone"
-              name="phone"
-              placeholder="+15551234567"
-              autoComplete="tel"
-              className="auth-input"
-              required
-              onChange={(e) => setPhone(e.target.value)}
+              countryCode={countryCode}
+              phoneNumber={phoneNumber}
+              onCountryCodeChange={setCountryCode}
+              onPhoneNumberChange={setPhoneNumber}
             />
           </div>
           <div className="auth-field">

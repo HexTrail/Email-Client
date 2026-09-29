@@ -2,22 +2,25 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import PhonemailLogo from "../components/PhonemailLogo.tsx";
+import PhoneNumberField from "../components/PhoneNumberField.tsx";
 import "./AuthPages.css";
 
 function ForgotPassword() {
-  const [phone, setPhone] = useState("");
+  const [countryCode, setCountryCode] = useState("+91");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [otp, setOtp] = useState("");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [codeSent, setCodeSent] = useState(false);
   const [complete, setComplete] = useState(false);
   const [error, setError] = useState("");
+  const phone = `${countryCode}${phoneNumber}`;
 
   async function requestCode(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     if (!/^\+[1-9]\d{7,14}$/.test(phone)) {
-      setError("Enter your phone number with country code, e.g. +15551234567.");
+      setError("Enter a valid phone number.");
       return;
     }
 
@@ -127,15 +130,12 @@ function ForgotPassword() {
               <form onSubmit={requestCode} className="auth-form">
                 <div className="auth-field">
                   <label htmlFor="recovery-phone">Phone number</label>
-                  <input
+                  <PhoneNumberField
                     id="recovery-phone"
-                    type="tel"
-                    value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
-                    placeholder="+15551234567"
-                    autoComplete="tel"
-                    className="auth-input"
-                    required
+                    countryCode={countryCode}
+                    phoneNumber={phoneNumber}
+                    onCountryCodeChange={setCountryCode}
+                    onPhoneNumberChange={setPhoneNumber}
                   />
                 </div>
                 {error && <p role="alert" className="auth-error">{error}</p>}
