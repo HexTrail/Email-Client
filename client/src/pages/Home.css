@@ -120,19 +120,19 @@
 .detail-options button { width: 100%; padding: 9px 10px; border: 0; border-radius: 5px; color: #4f5b56; background: transparent; cursor: pointer; text-align: left; font: inherit; font-size: 10px; }
 .detail-options button:hover { color: var(--green); background: #f0f5f1; }
 .detail-action-status { position: absolute; top: 42px; right: 0; z-index: 5; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; color: #4f5b56; background: #fff; box-shadow: 0 5px 16px #263c3210; font-size: 9px; white-space: nowrap; }
-.thread-body { display: flex; align-items: center; flex: 1; flex-direction: column; overflow-y: auto; padding: 42px 5% 42px 7%; }
-.thread-date { display: flex; align-items: center; gap: 11px; width: min(530px, 100%); margin: 5px 0 22px; color: #99a49e; font-size: 8px; font-weight: 600; letter-spacing: 1px; }
+.thread-body { display: flex; align-items: center; flex: 1; flex-direction: column; overflow-y: auto; padding: 28px 5% 30px 7%; }
+.thread-date { display: flex; align-items: center; gap: 11px; width: min(530px, 100%); margin: 4px 0 14px; color: #99a49e; font-size: 8px; font-weight: 600; letter-spacing: 1px; }
 .thread-date span { height: 1px; flex: 1; background: #e2e8e1; }
-.message-card { width: min(600px, 88%); padding: 20px 22px 16px; border: 1px solid #e8ece6; border-radius: 10px; background: #fff; box-shadow: 0 5px 20px #3f594c08; }
+.message-card { width: min(580px, 88%); padding: 14px 17px 11px; border: 1px solid #e8ece6; border-radius: 8px; background: #fff; box-shadow: 0 3px 12px #3f594c08; }
 .message-card-sent { align-self: flex-end; border-color: #e1e3df; background: #e9fdf9; }
 .message-card-sent .message-avatar { color: #5d625f; background: #e6e7e3; }
 .message-card-received { align-self: flex-start; }
-.message-header { display: flex; align-items: center; gap: 10px; }
-.message-avatar { display: grid; width: 32px; height: 32px; flex: 0 0 32px; place-items: center; border-radius: 50%; color: #466a5e; background: #e6eee6; font-size: 9px; font-weight: 600; }
+.message-header { display: flex; align-items: center; gap: 8px; }
+.message-avatar { display: grid; width: 28px; height: 28px; flex: 0 0 28px; place-items: center; border-radius: 50%; color: #466a5e; background: #e6eee6; font-size: 8px; font-weight: 600; }
 .message-sender { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 2px; }
 .message-sender strong { overflow: hidden; color: #35413d; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .message-sender span, .message-header time { color: #98a19d; font-size: 9px; }
-.message-text { margin: 22px 0 25px; color: #46524d; font-size: 11px; line-height: 1.9; white-space: pre-wrap; overflow-wrap: anywhere; }
+.message-text { margin: 12px 0 14px; color: #46524d; font-size: 10px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
 .message-footnote { color: #9ba49f; font-size: 8px; }
 .thread-reply-hint { width: min(530px, 100%); margin-top: 15px; padding: 12px; border: 1px dashed #dce5dc; border-radius: 8px; color: #9aa49e; text-align: center; font-size: 9px; }
 .detail-empty { display: flex; align-items: center; justify-content: center; flex: 1; flex-direction: column; padding: 24px; text-align: center; }
@@ -262,19 +262,19 @@
 .compose-send svg { width: 14px; height: 14px; }
 .compose-cancel:disabled, .compose-send:disabled { cursor: wait; opacity: .65; }
 .thread-status { width: min(530px, 100%); padding: 14px; color: #77817c; text-align: center; font-size: 10px; }
-.message-card + .message-card { margin-top: 14px; }
-.message-subject { min-width: 0; margin: 16px 0 0; padding-top: 14px; border-top: 1px solid #e8ece6; color: #2f3b37; font-size: 14px; font-weight: 600; line-height: 1.45; overflow-wrap: anywhere; }
+.message-card + .message-card { margin-top: 9px; }
+.message-subject { min-width: 0; margin: 10px 0 0; padding-top: 9px; border-top: 1px solid #e8ece6; color: #2f3b37; font-size: 12px; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
 .message-card-sent .message-subject { border-color: #e1e3df; }
-.message-subject + .message-text { margin-top: 12px; }
+.message-subject + .message-text { margin-top: 9px; }
 .message-rich-text { white-space: normal; }
-.message-rich-text p { margin: 0 0 10px; }
+.message-rich-text p { margin: 0 0 7px; }
 .message-rich-text ul, .message-rich-text ol { padding-left: 22px; }
 .message-rich-text a { color: #176b57; text-decoration: underline; }
-.message-attachments { display: flex; flex-direction: column; gap: 7px; margin: 0 0 14px; }
-.message-attachment { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 39px; padding: 0 9px; border: 1px solid #e5ebe4; border-radius: 6px; color: #65716b; background: #fbfcfa; font-size: 9px; }
+.message-attachments { display: flex; flex-direction: column; gap: 5px; margin: 0 0 10px; }
+.message-attachment { display: flex; align-items: center; gap: 7px; min-width: 0; min-height: 33px; padding: 0 8px; border: 1px solid #e5ebe4; border-radius: 6px; color: #65716b; background: #fbfcfa; font-size: 9px; }
 .message-attachment > svg { width: 14px; height: 14px; flex: 0 0 14px; }
 .message-attachment > span { overflow: hidden; min-width: 0; flex: 1; color: #46524d; text-overflow: ellipsis; white-space: nowrap; }
 .message-attachment small { flex: 0 0 auto; color: #98a19d; font-size: 8px; }
-.message-attachment a { display: inline-flex; align-items: center; justify-content: center; min-height: 26px; padding: 0 6px; border-radius: 4px; color: #176b57; text-decoration: none; }
+.message-attachment a { display: inline-flex; align-items: center; justify-content: center; min-height: 23px; padding: 0 6px; border-radius: 4px; color: #176b57; text-decoration: none; }
 .message-attachment a:hover { background: #eaf3ed; }
 .message-attachment a svg { width: 14px; height: 14px; }
