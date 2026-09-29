@@ -1,12 +1,37 @@
 // Collects message details and submits outgoing email.
 // Collects message details and submits outgoing email.
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import axios from "axios";
 import { FiBold, FiItalic, FiLink, FiList, FiPaperclip, FiSend, FiUnderline, FiX } from "react-icons/fi";
 
 const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
 const COUNTRY_CODE_REMINDER = "Add the country code, for example +14155550123@phonemail.test.";
+type ActiveFormats = {
+  bold: boolean;
+  italic: boolean;
+  underline: boolean;
+  insertUnorderedList: boolean;
+  insertOrderedList: boolean;
+  link: boolean;
+};
+
+function getActiveFormats(editor: HTMLDivElement | null): ActiveFormats {
+  const selection = window.getSelection();
+  const hasEditorSelection = !!editor && !!selection?.anchorNode && editor.contains(selection.anchorNode);
+  const selectedElement = selection?.anchorNode instanceof Element
+    ? selection.anchorNode
+    : selection?.anchorNode?.parentElement;
+
+  return {
+    bold: hasEditorSelection && document.queryCommandState("bold"),
+    italic: hasEditorSelection && document.queryCommandState("italic"),
+    underline: hasEditorSelection && document.queryCommandState("underline"),
+    insertUnorderedList: hasEditorSelection && document.queryCommandState("insertUnorderedList"),
+    insertOrderedList: hasEditorSelection && document.queryCommandState("insertOrderedList"),
+    link: hasEditorSelection && !!selectedElement?.closest("a"),
+  };
+}
 
 function isMissingCountryCode(recipient: string) {
   const localPart = recipient.includes("@") ? recipient.slice(0, recipient.lastIndexOf("@")) : recipient;
@@ -43,12 +68,28 @@ export default function ComposeModal({ open, onClose, onSent }: ComposeModalProp
   const [attachments, setAttachments] = useState<File[]>([]);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [activeFormats, setActiveFormats] = useState<ActiveFormats>({
+    bold: false,
+    italic: false,
+    underline: false,
+    insertUnorderedList: false,
+    insertOrderedList: false,
+    link: false,
+  });
   const editorRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recipientMissingCountryCode = to
     .split(",")
     .map((recipient) => recipient.trim())
     .find(isMissingCountryCode);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const updateActiveFormats = () => setActiveFormats(getActiveFormats(editorRef.current));
+    document.addEventListener("selectionchange", updateActiveFormats);
+    return () => document.removeEventListener("selectionchange", updateActiveFormats);
+  }, [open]);
 
   if (!open) return null;
 
@@ -117,6 +158,7 @@ export default function ComposeModal({ open, onClose, onSent }: ComposeModalProp
       setHtml(editorRef.current.innerHTML);
       setText(editorRef.current.innerText);
     }
+    setActiveFormats(getActiveFormats(editorRef.current));
   }
 
   function addAttachments(files: FileList | null) {
@@ -182,13 +224,13 @@ export default function ComposeModal({ open, onClose, onSent }: ComposeModalProp
             <span>Message</span>
             <div className="compose-editor-wrap">
               <div className="compose-toolbar" role="toolbar" aria-label="Message formatting">
-                <button type="button" title="Bold" aria-label="Bold" onMouseDown={(event) => event.preventDefault()} onClick={() => applyFormat("bold")} disabled={sending}><FiBold /></button>
-                <button type="button" title="Italic" aria-label="Italic" onMouseDown={(event) => event.preventDefault()} onClick={() => applyFormat("italic")} disabled={sending}><FiItalic /></button>
-                <button type="button" title="Underline" aria-label="Underline" onMouseDown={(event) => event.preventDefault()} onClick={() => applyFormat("underline")} disabled={sending}><FiUnderline /></button>
+                <button type="button" className={activeFormats.bold ? "is-active" : undefined} title="Bold" aria-label="Bold" aria-pressed={activeFormats.bold} onMouseDown={(event) => event.preventDefault()} onClick={() => applyFormat("bold")} disabled={sending}><FiBold /></button>
+                <button type="button" className={activeFormats.italic ? "is-active" : undefined} title="Italic" aria-label="Italic" aria-pressed={activeFormats.italic} onMouseDown={(event) => event.preventDefault()} onClick={() => applyFormat("italic")} disabled={sending}><FiItalic /></button>
+                <button type="button" className={activeFormats.underline ? "is-active" : undefined} title="Underline" aria-label="Underline" aria-pressed={activeFormats.underline} onMouseDown={(event) => event.preventDefault()} onClick={() => applyFormat("underline")} disabled={sending}><FiUnderline /></button>
                 <span className="compose-toolbar-divider" />
-                <button type="button" title="Bulleted list" aria-label="Bulleted list" onMouseDown={(event) => event.preventDefault()} onClick={() => applyFormat("insertUnorderedList")} disabled={sending}><FiList /></button>
-                <button type="button" title="Numbered list" aria-label="Numbered list" onMouseDown={(event) => event.preventDefault()} onClick={() => applyFormat("insertOrderedList")} disabled={sending}><span className="numbered-list-icon">1.</span></button>
-                <button type="button" title="Insert link" aria-label="Insert link" onMouseDown={(event) => event.preventDefault()} onClick={() => {
+                <button type="button" className={activeFormats.insertUnorderedList ? "is-active" : undefined} title="Bulleted list" aria-label="Bulleted list" aria-pressed={activeFormats.insertUnorderedList} onMouseDown={(event) => event.preventDefault()} onClick={() => applyFormat("insertUnorderedList")} disabled={sending}><FiList /></button>
+                <button type="button" className={activeFormats.insertOrderedList ? "is-active" : undefined} title="Numbered list" aria-label="Numbered list" aria-pressed={activeFormats.insertOrderedList} onMouseDown={(event) => event.preventDefault()} onClick={() => applyFormat("insertOrderedList")} disabled={sending}><span className="numbered-list-icon">1.</span></button>
+                <button type="button" className={activeFormats.link ? "is-active" : undefined} title="Insert link" aria-label="Insert link" aria-pressed={activeFormats.link} onMouseDown={(event) => event.preventDefault()} onClick={() => {
                   const url = window.prompt("Enter a link");
                   if (url) applyFormat("createLink", url);
                 }} disabled={sending}><FiLink /></button>

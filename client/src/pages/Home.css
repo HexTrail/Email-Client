@@ -238,6 +238,7 @@
 .compose-toolbar { display: flex; align-items: center; gap: 3px; min-height: 38px; padding: 3px 7px; border-bottom: 1px solid #e9eee8; background: #fbfcfa; }
 .compose-toolbar button { display: grid; width: 30px; height: 29px; flex: 0 0 30px; place-items: center; border: 0; border-radius: 5px; color: #65716b; background: transparent; cursor: pointer; }
 .compose-toolbar button:hover:not(:disabled) { color: #175b4d; background: #eaf3ed; }
+.compose-toolbar button.is-active, .compose-toolbar button.is-active:hover:not(:disabled) { color: #175b4d; background: #e3f0e7; }
 .compose-toolbar button:disabled { cursor: wait; opacity: .5; }
 .compose-toolbar button svg { width: 15px; height: 15px; }
 .compose-toolbar-divider { width: 1px; height: 19px; margin: 0 4px; background: #dfe6df; }
