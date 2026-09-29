@@ -21,7 +21,7 @@ const transporter = nodemailer.createTransport({
 });
 
 /**
- * @param {{from: string, to: string[], cc?: string[], subject: string, text?: string, html?: string}} opts
+ * @param {{from: string, to: string[], cc?: string[], subject: string, text?: string, html?: string, attachments?: Array<{filename: string, contentType?: string, content: Buffer}>}} opts
  */
 async function sendMail(opts) {
   const recipients = (Array.isArray(opts.to) ? opts.to : [opts.to])
@@ -44,6 +44,7 @@ async function sendMail(opts) {
     subject: opts.subject,
     text: opts.text,
     html: opts.html,
+    attachments: opts.attachments,
   });
 }
 

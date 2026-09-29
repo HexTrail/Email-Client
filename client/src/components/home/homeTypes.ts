@@ -10,6 +10,25 @@ export type Conversation = {
   lastMessageFrom: string;
 };
 
+export type MessageAttachment = {
+  filename: string;
+  contentType: string;
+  size: number;
+  viewUrl: string;
+  downloadUrl: string;
+};
+
+export type EmailMessage = {
+  _id: string;
+  from: string;
+  to: string[];
+  subject: string;
+  text: string;
+  html: string;
+  date: string;
+  attachments: MessageAttachment[];
+};
+
 export type Folder = "conversations" | "spam" | "trash";
 
 export const folders: { id: Folder; label: string; icon: typeof FiMessageCircle }[] = [

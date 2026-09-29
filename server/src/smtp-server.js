@@ -19,6 +19,7 @@ import { SMTPServer } from 'smtp-server';
 import { simpleParser } from 'mailparser';
 import Conversation from './Models/Conversation.js';
 import Message from './Models/Message.js';
+import sanitizeEmailHtml from './sanitizeEmailHtml.js';
 
 
 const DOMAIN = (process.env.DOMAIN || 'phonemail.test').trim().toLowerCase();
@@ -31,7 +32,7 @@ function phoneFromAddress(address) {
   return address.slice(0, address.lastIndexOf('@'));
 }
 
-async function persistMessage({ from, to, subject, text, html, date }) {
+async function persistMessage({ from, to, subject, text, html, attachments = [], date }) {
   const sender = from.toLowerCase();
   const recipients = to.map((address) => address.toLowerCase());
   const participants = [...new Set([sender, ...recipients].map(phoneFromAddress))].sort();
@@ -59,6 +60,12 @@ async function persistMessage({ from, to, subject, text, html, date }) {
     subject,
     text,
     html,
+    attachments: attachments.map(({ filename, contentType, size, content }) => ({
+      filename,
+      contentType,
+      size,
+      content,
+    })),
     date: messageDate,
   });
 
@@ -122,7 +129,8 @@ export function createSmtpServer({ domain = DOMAIN, deliverMessage = persistMess
           to,
           subject: parsed.subject || '',
           text: parsed.text || '',
-          html: parsed.html || '',
+          html: sanitizeEmailHtml(parsed.html || ''),
+          attachments: parsed.attachments || [],
           date: parsed.date,
         });
         console.log(`[smtp] delivered "${parsed.subject || '(no subject)'}" to ${to.join(', ')}`);

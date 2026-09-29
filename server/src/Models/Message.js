@@ -10,9 +10,9 @@ import { Schema, model } from 'mongoose'
 const AttachmentSchema = new Schema(
   {
     filename: { type: String, required: true },
-    url: { type: String, required: true }, // wherever you actually store the file
     contentType: { type: String, default: "application/octet-stream" },
     size: { type: Number, default: 0 }, // bytes
+    content: { type: Buffer, required: true },
   },
   { _id: false }
 );
