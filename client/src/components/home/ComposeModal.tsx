@@ -90,7 +90,6 @@ export default function ComposeModal({ open, seed, onClose, onDiscard, onSent }:
   const editorRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const draftIdRef = useRef<string | undefined>(seed?.draftId);
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
@@ -135,28 +134,43 @@ export default function ComposeModal({ open, seed, onClose, onDiscard, onSent }:
   }, [attachments, bcc, cc, html, replyToId, subject, text, to]);
 
   useEffect(() => {
-    if (!open || sending) return;
-    const hasContent = Boolean(to.trim() || cc.trim() || bcc.trim() || subject.trim() || text.trim() || html.trim() || attachments.length || draftIdRef.current);
-    if (!hasContent) return;
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => void saveDraft(), 700);
-    return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    };
-  }, [attachments, bcc, cc, html, open, saveDraft, sending, subject, text, to]);
+    if (!open) return;
+
+    function saveOnPageExit() {
+      const hasContent = Boolean(to.trim() || cc.trim() || bcc.trim() || subject.trim() || text.trim() || html.trim() || attachments.length || draftIdRef.current);
+      if (sending || !hasContent) return;
+
+      const body = JSON.stringify({
+        draftId: draftIdRef.current,
+        to: to.split(",").map((address) => address.trim()).filter(Boolean),
+        cc: cc.split(",").map((address) => address.trim()).filter(Boolean),
+        bcc: bcc.split(",").map((address) => address.trim()).filter(Boolean),
+        replyToId,
+        subject,
+        text,
+        html,
+        attachments,
+      });
+      navigator.sendBeacon("/api/drafts", new Blob([body], { type: "application/json" }));
+    }
+
+    window.addEventListener("pagehide", saveOnPageExit);
+    return () => window.removeEventListener("pagehide", saveOnPageExit);
+  }, [attachments, bcc, cc, html, open, replyToId, sending, subject, text, to]);
 
   if (!open) return null;
 
   async function closeAndSave() {
     if (sending) return;
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    await saveDraft();
+    const hasContent = Boolean(to.trim() || cc.trim() || bcc.trim() || subject.trim() || text.trim() || html.trim() || attachments.length || draftIdRef.current);
+    if (hasContent && window.confirm("Save this email as a draft before closing? Choose Cancel to close without saving.")) {
+      await saveDraft();
+    }
     onClose();
   }
 
   async function discardDraft() {
     if (sending) return;
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     await saveQueueRef.current.catch(() => undefined);
     if (draftIdRef.current) {
       try {
@@ -196,8 +210,6 @@ export default function ComposeModal({ open, seed, onClose, onDiscard, onSent }:
       return;
     }
 
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    await saveDraft();
     setSending(true);
     try {
       await axios.post(
