@@ -90,7 +90,7 @@ export default function ConversationList({
                 : participantNames[0] ?? "Unknown sender";
 
               return (
-                <div className={`conversation-row-wrap${conversation.unread ? " is-unread" : ""}`} key={conversation._id}>
+                <div className={`conversation-row-wrap${conversation.unread ? " is-unread" : ""}${selectedId === conversation._id ? " is-selected" : ""}`} key={conversation._id}>
                   <input
                     className="conversation-select"
                     type="checkbox"

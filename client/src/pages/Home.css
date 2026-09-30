@@ -97,14 +97,18 @@
 .refresh-button { width: 32px; height: 32px; }
 .refresh-button svg { width: 15px; height: 15px; }
 .list-meta { display: flex; justify-content: space-between; padding: 0 25px 12px; color: #929b97; font-size: 9px; }
-.conversation-list { overflow-y: auto; min-height: 0; flex: 1; border-top: 1px solid #f0f2ef; }
+.conversation-list { overflow-y: auto; min-height: 0; flex: 1; border-top: 1px solid #f0f2ef; scrollbar-color: #b9c9bd transparent; scrollbar-gutter: stable; scrollbar-width: thin; }
+.conversation-list::-webkit-scrollbar, .thread-body::-webkit-scrollbar { width: 9px; }
+.conversation-list::-webkit-scrollbar-track, .thread-body::-webkit-scrollbar-track { background: transparent; }
+.conversation-list::-webkit-scrollbar-thumb, .thread-body::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 8px; background: #b9c9bd; background-clip: content-box; }
+.conversation-list::-webkit-scrollbar-thumb:hover, .thread-body::-webkit-scrollbar-thumb:hover { background: #719b82; background-clip: content-box; }
 .conversation-row-wrap { position: relative; display: flex; align-items: center; border-bottom: 1px solid #f0f2ef; background: #fff; }
 .conversation-row-wrap:hover { background: #fafbf9; }
+.conversation-row-wrap.is-selected::before { position: absolute; top: 0; bottom: 0; left: 0; width: 3px; background: #39806a; content: ""; }
 .conversation-select { width: 14px; height: 14px; flex: 0 0 14px; margin: 0 0 0 16px; accent-color: var(--green); cursor: pointer; }
 .conversation-row { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 78px; padding: 12px 22px 12px 12px; border: 0; color: inherit; background: transparent; cursor: pointer; text-align: left; }
 .conversation-row:hover { background: #fafbf9; }
 .conversation-row.is-selected { background: #f1f7f2; }
-.conversation-row.is-selected::before { position: absolute; top: 0; bottom: 0; left: 0; width: 3px; background: #39806a; content: ""; }
 .conversation-row-wrap.is-unread .conversation-line strong { color: #202b29; font-weight: 700; }
 .unread-indicator { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: #39806a; }
 .bulk-actions { display: flex; align-items: center; gap: 5px; min-height: 42px; padding: 0 18px; border-top: 1px solid #f0f2ef; border-bottom: 1px solid #f0f2ef; color: #6c7872; background: #fbfcfa; font-size: 10px; }
@@ -133,7 +137,7 @@
 .folder-empty strong { margin-top: 14px; font-size: 12px; }
 .folder-empty p { max-width: 220px; margin: 7px 0 0; color: #8c9691; font-size: 10px; line-height: 1.7; }
 
-.conversation-detail { position: relative; display: flex; min-width: 0; flex-direction: column; background-color: #f8f9f6; background-image: radial-gradient(#dfe7de 0.65px, transparent 0.65px); background-size: 18px 18px; }
+.conversation-detail { position: relative; display: flex; min-width: 0; min-height: 0; flex-direction: column; overflow: hidden; background-color: #f8f9f6; background-image: radial-gradient(#dfe7de 0.65px, transparent 0.65px); background-size: 18px 18px; }
 .detail-header { display: flex; align-items: center; justify-content: space-between; min-height: 76px; padding: 0 30px; border-bottom: 1px solid #e8ece6; background: #fff; }
 .detail-person { display: flex; align-items: center; gap: 11px; min-width: 0; }
 .detail-back { display: none; }
@@ -146,7 +150,7 @@
 .detail-options button { width: 100%; padding: 9px 10px; border: 0; border-radius: 5px; color: #4f5b56; background: transparent; cursor: pointer; text-align: left; font: inherit; font-size: 10px; }
 .detail-options button:hover { color: var(--green); background: #f0f5f1; }
 .detail-action-status { position: absolute; top: 42px; right: 0; z-index: 5; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; color: #4f5b56; background: #fff; box-shadow: 0 5px 16px #263c3210; font-size: 9px; white-space: nowrap; }
-.thread-body { display: flex; align-items: center; flex: 1; flex-direction: column; overflow-y: auto; padding: 28px 5% 30px 7%; }
+.thread-body { display: flex; min-height: 0; align-items: center; flex: 1; flex-direction: column; overflow-y: auto; overscroll-behavior: contain; padding: 28px 5% 30px 7%; scrollbar-color: #b9c9bd transparent; scrollbar-gutter: stable; scrollbar-width: thin; }
 .thread-date { display: flex; align-items: center; gap: 11px; width: min(530px, 100%); margin: 4px 0 14px; color: #99a49e; font-size: 8px; font-weight: 600; letter-spacing: 1px; }
 .thread-date span { height: 1px; flex: 1; background: #e2e8e1; }
 .message-card { width: min(580px, 88%); padding: 14px 17px 11px; border: 1px solid #e8ece6; border-radius: 8px; background: #fff; box-shadow: 0 3px 12px #3f594c08; }

@@ -109,6 +109,10 @@ function Home() {
     }
   }, []);
 
+  const refreshConversationList = useCallback(() => {
+    void loadConversations(activeFolder, search, searchFilters);
+  }, [activeFolder, loadConversations, search, searchFilters]);
+
   useEffect(() => {
     const timer = setTimeout(() => void loadConversations(activeFolder, search, searchFilters), 250);
     return () => clearTimeout(timer);
@@ -226,7 +230,7 @@ function Home() {
               setSelectedId(null);
               void loadConversations(activeFolder, search, searchFilters);
             }}
-            onMessageUpdated={() => void loadConversations(activeFolder, search, searchFilters)}
+            onMessageUpdated={refreshConversationList}
             onReply={(seed) => {
               openComposer(seed);
             }}

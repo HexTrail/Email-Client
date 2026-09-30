@@ -54,11 +54,31 @@ export default function ConversationDetail({
     })
       .then((response) => {
         if (active) {
+          const messages: EmailMessage[] = Array.isArray(response.data.messages) ? response.data.messages : [];
           setMessageResult({
             conversationId,
-            messages: Array.isArray(response.data.messages) ? response.data.messages : [],
+            messages,
             error: false,
           });
+          const unreadMessageIds = messages
+            .filter((message) => !message.read && !message.from.toLowerCase().startsWith(`${currentUserPhone}@`.toLowerCase()))
+            .map((message) => message._id);
+          if (unreadMessageIds.length) {
+            void axios.patch("/api/messages/bulk", { messageIds: unreadMessageIds, action: "read" }, { withCredentials: true })
+              .then(() => {
+                if (!active) return;
+                setMessageResult((current) => current.conversationId === conversationId
+                  ? {
+                      ...current,
+                      messages: current.messages.map((message) => unreadMessageIds.includes(message._id)
+                        ? { ...message, read: true }
+                        : message),
+                    }
+                  : current);
+                onMessageUpdated();
+              })
+              .catch(() => undefined);
+          }
         }
       })
       .catch(() => {
@@ -66,7 +86,7 @@ export default function ConversationDetail({
       });
 
     return () => { active = false; };
-  }, [activeFolder, conversationId]);
+  }, [activeFolder, conversationId, currentUserPhone, onMessageUpdated]);
 
   const resultMatchesConversation = messageResult.conversationId === conversationId;
   const visibleMessages = resultMatchesConversation ? messageResult.messages : [];
@@ -86,7 +106,6 @@ export default function ConversationDetail({
       ? "You"
       : formatAddress(conversation.lastMessageFrom)
     : title;
-
   async function copyAddresses() {
     try {
       await navigator.clipboard.writeText(participants.join(", "));
@@ -111,11 +130,20 @@ export default function ConversationDetail({
   }
 
   async function toggleRead(message: EmailMessage) {
+    const read = !message.read;
+    const messageIds = read
+      ? visibleMessages
+          .filter((item) => !item.read && !item.from.toLowerCase().startsWith(`${currentUserPhone}@`.toLowerCase()))
+          .map((item) => item._id)
+      : [message._id];
     try {
-      await axios.patch(`/api/messages/${message._id}/state`, { read: !message.read }, { withCredentials: true });
+      await axios.patch("/api/messages/bulk", {
+        messageIds,
+        action: read ? "read" : "unread",
+      }, { withCredentials: true });
       setMessageResult((current) => ({
         ...current,
-        messages: current.messages.map((item) => item._id === message._id ? { ...item, read: !message.read } : item),
+        messages: current.messages.map((item) => messageIds.includes(item._id) ? { ...item, read } : item),
       }));
       onMessageUpdated();
     } catch {
@@ -274,7 +302,7 @@ export default function ConversationDetail({
                   <div className="message-actions">
                     {activeFolder !== "trash" && activeFolder !== "spam" && (
                       <>
-                        {!isOwnMessage && <button className="message-action" type="button" title={message.read ? "Mark unread" : "Mark read"} aria-label={message.read ? "Mark unread" : "Mark read"} onClick={() => void toggleRead(message)}>{message.read ? <FiMail /> : <FiCheck />}</button>}
+                        {!isOwnMessage && <button className="message-action" type="button" title={message.read ? "Mark unread" : "Mark conversation read"} aria-label={message.read ? "Mark unread" : "Mark conversation read"} onClick={() => void toggleRead(message)}>{message.read ? <FiMail /> : <FiCheck />}</button>}
                         <button className="message-action" type="button" title="Reply" aria-label="Reply" onClick={() => replyTo(message)}><FiCornerUpLeft /></button>
                         <button className="message-action" type="button" title="Forward" aria-label="Forward" onClick={() => void forwardMessage(message)}><FiShare2 /></button>
                       </>
