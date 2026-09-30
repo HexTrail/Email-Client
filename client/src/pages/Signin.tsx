@@ -9,19 +9,42 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../Context/AuthContext.tsx";
 import "./AuthPages.css";
 
+type SignInDetails = {
+  phone: string;
+  username: string;
+  password: string;
+};
+
 function Signin() {
   const [termsOpen, setTermsOpen] = useState(false);
-  const [pendingSignIn, setPendingSignIn] = useState<{
-    phone: string;
-    username: string;
-    password: string;
-  } | null>(null);
+  const [termsViewOpen, setTermsViewOpen] = useState(false);
+  const [pendingSignIn, setPendingSignIn] = useState<SignInDetails | null>(null);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
   const [error, setError] = useState("");
   const { signIn } = useAuth();
   const navigate = useNavigate();
+
+  async function continueSignIn(details: SignInDetails, termsAccepted = false) {
+    setError("");
+    try {
+      const result = await signIn(details.phone, details.username, details.password, termsAccepted);
+      if (result.termsRequired) {
+        setPendingSignIn(details);
+        setTermsOpen(true);
+        return;
+      }
+      setPendingSignIn(null);
+      navigate(result.otpRequired ? "/verify" : "/home");
+    } catch (error) {
+      console.error(error);
+      const responseMessage = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+      setError(typeof responseMessage === "string" ? responseMessage : "Could not sign in. Please try again.");
+      setPendingSignIn(null);
+    }
+  }
+
   async function sendData(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
@@ -42,28 +65,16 @@ function Signin() {
       setError("Username must have at least 3 characters.");
       return;
     }
-    setPendingSignIn({ phone, username, password });
-    setTermsOpen(true);
+    const details = { phone, username, password };
+    setPendingSignIn(details);
+    await continueSignIn(details);
   }
 
   async function agreeToTerms() {
     if (!pendingSignIn) return;
 
     setTermsOpen(false);
-    try {
-      const otpRequired = await signIn(
-        pendingSignIn.phone,
-        pendingSignIn.username,
-        pendingSignIn.password
-      );
-      navigate(otpRequired ? "/verify" : "/home");
-    } catch (error) {
-      console.error(error);
-      const responseMessage = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
-      setError(typeof responseMessage === "string" ? responseMessage : "Could not sign in. Please try again.");
-    } finally {
-      setPendingSignIn(null);
-    }
+    await continueSignIn(pendingSignIn, true);
   }
   return (
     <main className="auth-screen">
@@ -115,7 +126,10 @@ function Signin() {
             Continue
           </button>
         </form>
-        <p className="auth-recovery-link"><Link to="/forgot-password">Forgot password?</Link></p>
+        <div className="auth-footer-links">
+          <Link to="/forgot-password">Forgot password?</Link>
+          <button type="button" onClick={() => setTermsViewOpen(true)}>Terms of Service</button>
+        </div>
       </section>
       {termsOpen && (
         <TermsModal
@@ -125,6 +139,9 @@ function Signin() {
             setPendingSignIn(null);
           }}
         />
+      )}
+      {termsViewOpen && (
+        <TermsModal viewOnly onClose={() => setTermsViewOpen(false)} />
       )}
     </main>
   );

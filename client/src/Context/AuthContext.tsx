@@ -16,10 +16,15 @@ type User = {
   username: string;
 };
 
+type SignInResult = {
+  otpRequired: boolean;
+  termsRequired: boolean;
+};
+
 type AuthContextType = {
   user: User | null;
   loading: boolean;
-  signIn: (phone: string, username: string, password: string) => Promise<boolean>;
+  signIn: (phone: string, username: string, password: string, termsAccepted?: boolean) => Promise<SignInResult>;
   pendingPhone: string | null;
   verifyOtp: (otp: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -72,28 +77,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
   async function signIn(
     phone: string,
     username: string,
-    password: string
-  ): Promise<boolean> {
+    password: string,
+    termsAccepted = false
+  ): Promise<SignInResult> {
     const response = await axios.post(
       "/api/auth/signin",
       {
         phone,
         username: username || undefined,
         password,
+        termsAccepted,
       },
       { withCredentials: true }
     );
+
+    if (response.data.termsRequired) {
+      return { otpRequired: false, termsRequired: true };
+    }
 
     if (response.data.otpRequired === false) {
       setUser(response.data.user);
       sessionStorage.removeItem("pendingOtpPhone");
       setPendingPhone(null);
-      return false;
+      return { otpRequired: false, termsRequired: false };
     }
 
     sessionStorage.setItem("pendingOtpPhone", phone);
     setPendingPhone(phone);
-    return true;
+    return { otpRequired: true, termsRequired: false };
   }
 
   async function verifyOtp(otp: string): Promise<void> {

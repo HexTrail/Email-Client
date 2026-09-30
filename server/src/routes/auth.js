@@ -66,6 +66,13 @@ router.post('/auth/signin', async (req, res) => {
 
     try {
         let user = await UsersModel.findOne({ phone: userData.phone });
+        if (!user && req.body.termsAccepted !== true) {
+            return res.status(200).json({
+                success: true,
+                termsRequired: true,
+            });
+        }
+
         if (user?.password) {
             const isPasswordValid = await bcrypt.compare(userData.password, user.password);
             if (!isPasswordValid) {

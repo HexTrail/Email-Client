@@ -4,11 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 interface TermsModalProps {
-  onAgree: () => void;
+  onAgree?: () => void;
   onClose: () => void;
+  viewOnly?: boolean;
 }
 
-export default function TermsModal({ onAgree, onClose }: TermsModalProps) {
+export default function TermsModal({ onAgree, onClose, viewOnly = false }: TermsModalProps) {
   const [scrolledToEnd, setScrolledToEnd] = useState<boolean>(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -73,21 +74,33 @@ export default function TermsModal({ onAgree, onClose }: TermsModalProps) {
         </div>
 
         <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            disabled={!scrolledToEnd}
-            onClick={onAgree}
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:hover:bg-gray-300"
-          >
-            {scrolledToEnd ? "I Agree" : "Scroll to the bottom to agree"}
-          </button>
+          {viewOnly ? (
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              Close
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-md px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!scrolledToEnd}
+                onClick={onAgree}
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:hover:bg-gray-300"
+              >
+                {scrolledToEnd ? "I Agree" : "Scroll to the bottom to agree"}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>,
