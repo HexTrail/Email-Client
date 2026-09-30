@@ -161,6 +161,18 @@ function Home() {
       return;
     }
     setSelectedId(id);
+    const selectedConversation = conversations.find((conversation) => conversation._id === id);
+    if (!selectedConversation?.unread || !selectedConversation.messageIds?.length) return;
+
+    setConversations((current) => current.map((conversation) => conversation._id === id
+      ? { ...conversation, unread: false }
+      : conversation));
+    void axios.patch("/api/messages/bulk", {
+      messageIds: selectedConversation.messageIds,
+      action: "read",
+    }, { withCredentials: true })
+      .then(() => loadConversations(activeFolder, search, searchFilters))
+      .catch(() => loadConversations(activeFolder, search, searchFilters));
   }
 
   function openComposer(seed: CompositionSeed | null = null) {

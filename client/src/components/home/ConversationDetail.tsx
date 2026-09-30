@@ -54,31 +54,11 @@ export default function ConversationDetail({
     })
       .then((response) => {
         if (active) {
-          const messages: EmailMessage[] = Array.isArray(response.data.messages) ? response.data.messages : [];
           setMessageResult({
             conversationId,
-            messages,
+            messages: Array.isArray(response.data.messages) ? response.data.messages : [],
             error: false,
           });
-          const unreadMessageIds = messages
-            .filter((message) => !message.read && !message.from.toLowerCase().startsWith(`${currentUserPhone}@`.toLowerCase()))
-            .map((message) => message._id);
-          if (unreadMessageIds.length) {
-            void axios.patch("/api/messages/bulk", { messageIds: unreadMessageIds, action: "read" }, { withCredentials: true })
-              .then(() => {
-                if (!active) return;
-                setMessageResult((current) => current.conversationId === conversationId
-                  ? {
-                      ...current,
-                      messages: current.messages.map((message) => unreadMessageIds.includes(message._id)
-                        ? { ...message, read: true }
-                        : message),
-                    }
-                  : current);
-                onMessageUpdated();
-              })
-              .catch(() => undefined);
-          }
         }
       })
       .catch(() => {
@@ -86,7 +66,7 @@ export default function ConversationDetail({
       });
 
     return () => { active = false; };
-  }, [activeFolder, conversationId, currentUserPhone, onMessageUpdated]);
+  }, [activeFolder, conversationId]);
 
   const resultMatchesConversation = messageResult.conversationId === conversationId;
   const visibleMessages = resultMatchesConversation ? messageResult.messages : [];

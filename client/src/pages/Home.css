@@ -104,11 +104,12 @@
 .conversation-list::-webkit-scrollbar-thumb:hover, .thread-body::-webkit-scrollbar-thumb:hover { background: #719b82; background-clip: content-box; }
 .conversation-row-wrap { position: relative; display: flex; align-items: center; border-bottom: 1px solid #f0f2ef; background: #fff; }
 .conversation-row-wrap:hover { background: #fafbf9; }
+.conversation-row-wrap.is-selected, .conversation-row-wrap.is-selected:hover { background: #f1f7f2; }
 .conversation-row-wrap.is-selected::before { position: absolute; top: 0; bottom: 0; left: 0; width: 3px; background: #39806a; content: ""; }
 .conversation-select { width: 14px; height: 14px; flex: 0 0 14px; margin: 0 0 0 16px; accent-color: var(--green); cursor: pointer; }
 .conversation-row { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 78px; padding: 12px 22px 12px 12px; border: 0; color: inherit; background: transparent; cursor: pointer; text-align: left; }
 .conversation-row:hover { background: #fafbf9; }
-.conversation-row.is-selected { background: #f1f7f2; }
+.conversation-row.is-selected, .conversation-row.is-selected:hover { background: transparent; }
 .conversation-row-wrap.is-unread .conversation-line strong { color: #202b29; font-weight: 700; }
 .unread-indicator { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: #39806a; }
 .bulk-actions { display: flex; align-items: center; gap: 5px; min-height: 42px; padding: 0 18px; border-top: 1px solid #f0f2ef; border-bottom: 1px solid #f0f2ef; color: #6c7872; background: #fbfcfa; font-size: 10px; }
