@@ -1,6 +1,7 @@
 // Implements account sign-in and starts phone verification.
 // Implements account sign-in and starts phone verification.
 import { useState } from "react";
+import axios from "axios";
 import PhonemailLogo from "../components/PhonemailLogo.tsx";
 import PhoneNumberField from "../components/PhoneNumberField.tsx";
 import TermsModal from "../components/TermsModal.tsx";
@@ -58,7 +59,8 @@ function Signin() {
       navigate(otpRequired ? "/verify" : "/home");
     } catch (error) {
       console.error(error);
-      setError("Could not start verification. Check your details and try again.");
+      const responseMessage = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+      setError(typeof responseMessage === "string" ? responseMessage : "Could not sign in. Please try again.");
     } finally {
       setPendingSignIn(null);
     }
