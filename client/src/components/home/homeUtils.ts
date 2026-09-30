@@ -1,8 +1,7 @@
 // Provides display-formatting helpers for inbox data.
 // Provides display-formatting helpers for inbox data.
 export function formatAddress(address: string) {
-  const phone = address.split("@")[0];
-  return phone.length === 10 ? `+1 ${phone.slice(0, 3)} ${phone.slice(3, 6)} ${phone.slice(6)}` : `+${phone}`;
+  return address.split("@")[0].replace(/^\+91/, "");
 }
 
 export function initials(label: string) {

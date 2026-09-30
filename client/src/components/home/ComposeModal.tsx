@@ -7,7 +7,6 @@ import { FiBold, FiItalic, FiLink, FiList, FiPaperclip, FiSend, FiUnderline, FiX
 import type { CompositionSeed, DraftAttachment } from "./homeTypes.ts";
 
 const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
-const COUNTRY_CODE_REMINDER = "Add the country code, for example +14155550123@phonemail.test.";
 type ActiveFormats = {
   bold: boolean;
   italic: boolean;
@@ -32,12 +31,6 @@ function getActiveFormats(editor: HTMLDivElement | null): ActiveFormats {
     insertOrderedList: hasEditorSelection && document.queryCommandState("insertOrderedList"),
     link: hasEditorSelection && !!selectedElement?.closest("a"),
   };
-}
-
-function isMissingCountryCode(recipient: string) {
-  const localPart = recipient.includes("@") ? recipient.slice(0, recipient.lastIndexOf("@")) : recipient;
-  const digits = localPart.replace(/[\s().-]/g, "");
-  return /^\d{7,15}$/.test(digits);
 }
 
 function formatFileSize(size: number) {
@@ -99,10 +92,6 @@ export default function ComposeModal({ open, seed, onClose, onDiscard, onSent }:
   const draftIdRef = useRef<string | undefined>(seed?.draftId);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
-  const recipientMissingCountryCode = [to, cc, bcc]
-    .flatMap((value) => value.split(","))
-    .map((recipient) => recipient.trim())
-    .find(isMissingCountryCode);
 
   useEffect(() => {
     if (!open) return;
@@ -194,10 +183,6 @@ export default function ComposeModal({ open, seed, onClose, onDiscard, onSent }:
 
     if (!hasRecipients) {
       setError("Add at least one recipient.");
-      return;
-    }
-    if ([...recipients, ...copiedRecipients, ...blindRecipients].some(isMissingCountryCode)) {
-      setError(COUNTRY_CODE_REMINDER);
       return;
     }
     if (!subject.trim()) {
@@ -303,19 +288,13 @@ export default function ComposeModal({ open, seed, onClose, onDiscard, onSent }:
                 setTo(event.target.value);
                 setError("");
               }}
-              placeholder="phone@phonemail.test"
+              placeholder="9876543210@phonemail.test"
               aria-describedby="compose-recipient-help"
-              aria-invalid={recipientMissingCountryCode ? true : undefined}
               autoComplete="email"
               autoFocus
               disabled={sending}
             />
             <small id="compose-recipient-help">Separate multiple recipients with commas.</small>
-            {recipientMissingCountryCode && (
-              <small className="compose-recipient-warning" role="status" aria-live="polite">
-                Include the country code, e.g. +14155550123@phonemail.test.
-              </small>
-            )}
           </label>
           <label className="compose-field compose-recipient-field">
             <span>Cc</span>

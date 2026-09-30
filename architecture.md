@@ -94,7 +94,7 @@ The system chooses a phone-number-based identity model rather than a typical ema
 
 ### Phone-based identity
 
-Users are identified mainly by their E.164 phone number. The sign-in form validates a phone number such as `+15551234567` and a password.
+Users are identified by phone number. Sign-in and recovery accept a 10-digit national number; the server stores and sends it as an E.164 number using the default `+91` country code for Twilio. Mailbox addresses use the national number without a country-code prefix, such as `9876543210@phonemail.test`.
 
 The auth route logic in `server/src/routes/auth.js` does the following:
 
@@ -149,12 +149,12 @@ The app does not use a conventional email provider. Instead, phone numbers are c
 
 Example:
 
-- phone: `+1234567890`
-- mailbox address: `+1234567890@phonemail.test`
+- stored phone: `+919876543210`
+- mailbox address: `9876543210@phonemail.test`
 
 This is intentionally simple and deterministic:
 
-- the local part is the phone number
+- the local part is the national phone number without the default `+91` prefix
 - the domain is `phonemail.test` by default, or `process.env.DOMAIN`
 
 This gives each user a pseudo-email address that can be used as a recipient in the app, without needing a full external mail system.

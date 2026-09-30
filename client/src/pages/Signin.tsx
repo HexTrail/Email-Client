@@ -15,7 +15,6 @@ function Signin() {
     username: string;
     password: string;
   } | null>(null);
-  const [countryCode, setCountryCode] = useState("+91");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
@@ -25,8 +24,8 @@ function Signin() {
   async function sendData(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
-    const phone = `${countryCode}${phoneNumber}`;
-    if (!/^\+[1-9]\d{7,14}$/.test(phone)) {
+    const phone = `+91${phoneNumber}`;
+    if (!/^\+91\d{10}$/.test(phone)) {
       setError("Enter a valid phone number.");
       return;
     }
@@ -76,9 +75,7 @@ function Signin() {
             <label htmlFor="phone">Phone number</label>
             <PhoneNumberField
               id="phone"
-              countryCode={countryCode}
               phoneNumber={phoneNumber}
-              onCountryCodeChange={setCountryCode}
               onPhoneNumberChange={setPhoneNumber}
             />
           </div>

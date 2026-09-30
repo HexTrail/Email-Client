@@ -7,6 +7,7 @@ import jwt from 'jsonwebtoken';
 import Users from '../Models/Users.js';
 import authMiddleware from '../Middleware/auth.js';
 import { createVerification, verifyOtp } from '../otpAuth.js';
+import { getMailboxLocalPart } from '../mailbox.js';
 
 const signinSchema = z.object({
     phone: z.string().regex(/^\+[1-9]\d{7,14}$/, 'Phone number must be in international E.164 format'),
@@ -94,7 +95,7 @@ router.post('/auth/signin', async (req, res) => {
                 success: true,
                 message: "Development OTP bypass enabled",
                 otpRequired: false,
-                user: { id: String(user._id), phone: user.phone, username: user.username },
+                user: { id: String(user._id), phone: getMailboxLocalPart(user.phone), username: user.username },
             });
         }
 
@@ -167,7 +168,7 @@ router.get('/user', authMiddleware, async (req, res) => {
         }
         return res.status(200).json({
             success: true,
-            user: { id: String(user._id), phone: user.phone, username: user.username },
+            user: { id: String(user._id), phone: getMailboxLocalPart(user.phone), username: user.username },
         });
     } catch (error) {
         console.error("[user] failed to fetch user details:", error);
@@ -201,7 +202,7 @@ router.post('/auth/verify-otp', async (req, res) => {
         return res.status(200).json({
             success: true,
             message: "OTP verified successfully",
-            user: { id: String(user._id), phone: user.phone, username: user.username },
+            user: { id: String(user._id), phone: getMailboxLocalPart(user.phone), username: user.username },
         });
     } catch (error) {
         console.error("[auth] failed to verify OTP:", error);

@@ -193,7 +193,7 @@ erDiagram
 
 ### User
 
-`User` stores a required `phone` string, `username`, `phoneVerified`, and an optional `password`. The auth API validates phone numbers in international E.164 format. Keeping phone as a string preserves formatting and leading zeroes. Passwords set through the auth flow are bcrypt hashes; IVR-created users may not have a password yet. The database field is named `password`, though it contains the hash.
+`User` stores a required phone string, `username`, `phoneVerified`, and an optional `password`. Sign-in and recovery accept a 10-digit national number and use the default `+91` country code for Twilio verification; mailbox addresses omit that country code. Keeping phone as a string preserves formatting and leading zeroes. Passwords set through the auth flow are bcrypt hashes; IVR-created users may not have a password yet. The database field is named `password`, though it contains the hash.
 
 ### Conversation
 

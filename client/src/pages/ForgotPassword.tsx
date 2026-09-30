@@ -8,7 +8,6 @@ import PhoneNumberField from "../components/PhoneNumberField.tsx";
 import "./AuthPages.css";
 
 function ForgotPassword() {
-  const [countryCode, setCountryCode] = useState("+91");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [otp, setOtp] = useState("");
   const [password, setPassword] = useState("");
@@ -16,12 +15,12 @@ function ForgotPassword() {
   const [codeSent, setCodeSent] = useState(false);
   const [complete, setComplete] = useState(false);
   const [error, setError] = useState("");
-  const phone = `${countryCode}${phoneNumber}`;
+  const phone = `+91${phoneNumber}`;
 
   async function requestCode(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-    if (!/^\+[1-9]\d{7,14}$/.test(phone)) {
+    if (!/^\+91\d{10}$/.test(phone)) {
       setError("Enter a valid phone number.");
       return;
     }
@@ -80,7 +79,7 @@ function ForgotPassword() {
             <h1>{codeSent ? "Verify your phone" : "Forgot your password?"}</h1>
             <p className="auth-description">
               {codeSent
-                ? `If an account exists for ${phone}, a code has been sent. Enter it below to continue.`
+                ? `If an account exists for ${phoneNumber}, a code has been sent. Enter it below to continue.`
                 : "Enter the phone number linked to your account and we'll text you a verification code."}
             </p>
             {codeSent ? (
@@ -134,9 +133,7 @@ function ForgotPassword() {
                   <label htmlFor="recovery-phone">Phone number</label>
                   <PhoneNumberField
                     id="recovery-phone"
-                    countryCode={countryCode}
                     phoneNumber={phoneNumber}
-                    onCountryCodeChange={setCountryCode}
                     onPhoneNumberChange={setPhoneNumber}
                   />
                 </div>

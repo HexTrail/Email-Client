@@ -222,7 +222,10 @@ router.post('/send-email', authMiddleware, async (req, res) => {
             if (separator <= 0 || recipient.slice(separator + 1).toLowerCase() !== domain) continue;
 
             const recipientPhone = recipient.slice(0, separator);
-            const recipientUser = await UsersModel.findOne({ phone: recipientPhone });
+            const recipientUser = await UsersModel.findOne({ phone: recipientPhone })
+                || (/^\d{10}$/.test(recipientPhone)
+                    ? await UsersModel.findOne({ phone: `+91${recipientPhone}` })
+                    : null);
             if (!recipientUser?.phoneVerified) {
                 return res.status(404).json({
                     success: false,

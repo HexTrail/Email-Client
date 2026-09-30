@@ -83,13 +83,8 @@
 
 .auth-phone-control {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.55fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
-}
-
-.auth-country-code {
-  min-width: 0;
-  padding-right: 8px;
 }
 
 .auth-code-input {
