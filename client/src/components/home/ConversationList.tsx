@@ -1,6 +1,6 @@
 // Renders the inbox conversation summaries and selection controls.
 // Renders the inbox conversation summaries and selection controls.
-import { FiRefreshCw } from "react-icons/fi";
+import { FiArchive, FiCheck, FiRefreshCw, FiTrash2, FiRotateCcw } from "react-icons/fi";
 import type { Conversation, Folder } from "./homeTypes.ts";
 import { folders } from "./homeTypes.ts";
 import { formatAddress, formatTime, initials } from "./homeUtils.ts";
@@ -16,6 +16,9 @@ type ConversationListProps = {
   onSelect: (id: string) => void;
   onRefresh: () => void;
   onRetry: () => void;
+  selectedIds: string[];
+  onToggleSelected: (id: string) => void;
+  onBulkAction: (action: "archive" | "read" | "unread" | "trash" | "restore") => void;
 };
 
 export default function ConversationList({
@@ -29,6 +32,9 @@ export default function ConversationList({
   onSelect,
   onRefresh,
   onRetry,
+  selectedIds,
+  onToggleSelected,
+  onBulkAction,
 }: ConversationListProps) {
   const filteredConversations = conversations.filter((conversation) => {
     const otherParticipants = conversation.participants
@@ -54,6 +60,21 @@ export default function ConversationList({
 
       <>
         <div className="list-meta"><span>{conversations.length} {activeFolder === "conversations" ? "conversations" : "threads"}</span><span>Most recent</span></div>
+        {selectedIds.length > 0 && (
+          <div className="bulk-actions" aria-label="Actions for selected conversations">
+            <span>{selectedIds.length} selected</span>
+            {activeFolder === "spam" || activeFolder === "trash" || activeFolder === "archive" ? (
+              <button type="button" title="Restore selected" aria-label="Restore selected" onClick={() => onBulkAction("restore")}><FiRotateCcw /></button>
+            ) : activeFolder !== "drafts" && <button type="button" title="Archive selected" aria-label="Archive selected" onClick={() => onBulkAction("archive")}><FiArchive /></button>}
+            {activeFolder !== "sent" && activeFolder !== "drafts" && (
+              <>
+                <button type="button" title="Mark selected read" aria-label="Mark selected read" onClick={() => onBulkAction("read")}><FiCheck /></button>
+                <button type="button" title="Mark selected unread" aria-label="Mark selected unread" onClick={() => onBulkAction("unread")}><span className="unread-action-dot" /></button>
+              </>
+            )}
+            <button type="button" title="Move selected to trash" aria-label="Move selected to trash" onClick={() => onBulkAction("trash")}><FiTrash2 /></button>
+          </div>
+        )}
         <div className="conversation-list">
           {loading ? (
             <div className="list-message">Loading messages...</div>
@@ -70,23 +91,33 @@ export default function ConversationList({
               const participantNames = conversation.participants
                 .filter((participant) => participant !== currentUserPhone)
                 .map(formatAddress);
-              const title = conversation.isGroup
+              const title = conversation.isDraft
+                ? participantNames.length ? `Draft to ${participantNames.join(", ")}` : "Untitled draft"
+                : conversation.isGroup
                 ? conversation.groupName || "Group conversation"
                 : participantNames[0] ?? "Unknown sender";
 
               return (
-                <button
-                  className={`conversation-row${selectedId === conversation._id ? " is-selected" : ""}`}
-                  key={conversation._id}
-                  onClick={() => onSelect(conversation._id)}
-                >
-                  <span className={`conversation-avatar avatar-tone-${index % 5}`}>{initials(title)}</span>
-                  <span className="conversation-copy">
-                    <span className="conversation-line"><strong>{title}</strong><time>{formatTime(conversation.lastMessageAt)}</time></span>
-                    <span className="conversation-preview">{conversation.lastMessagePreview || "No message preview"}</span>
-                  </span>
-                  <span className="row-indicator" />
-                </button>
+                <div className={`conversation-row-wrap${conversation.unread ? " is-unread" : ""}`} key={conversation._id}>
+                  <input
+                    className="conversation-select"
+                    type="checkbox"
+                    checked={selectedIds.includes(conversation._id)}
+                    onChange={() => onToggleSelected(conversation._id)}
+                    aria-label={`Select ${title}`}
+                  />
+                  <button
+                    className={`conversation-row${selectedId === conversation._id ? " is-selected" : ""}`}
+                    onClick={() => onSelect(conversation._id)}
+                  >
+                    <span className={`conversation-avatar avatar-tone-${index % 5}`}>{initials(title)}</span>
+                    <span className="conversation-copy">
+                      <span className="conversation-line"><strong>{title}</strong><time>{formatTime(conversation.lastMessageAt)}</time></span>
+                      <span className="conversation-preview">{conversation.lastMessagePreview || (conversation.isDraft ? "Draft" : "No message preview")}</span>
+                    </span>
+                    {conversation.unread && <span className="unread-indicator" aria-label="Unread" />}
+                  </button>
+                </div>
               );
           })}
         </div>

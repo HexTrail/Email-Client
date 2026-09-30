@@ -8,6 +8,7 @@ type MailSidebarProps = {
   activeFolder: Folder;
   collapsed: boolean;
   conversationCount: number;
+  draftCount: number;
   mobileOpen: boolean;
   onFolderSelect: (folder: Folder) => void;
   onToggleCollapse: () => void;
@@ -19,6 +20,7 @@ export default function MailSidebar({
   activeFolder,
   collapsed,
   conversationCount,
+  draftCount,
   mobileOpen,
   onFolderSelect,
   onToggleCollapse,
@@ -59,6 +61,9 @@ export default function MailSidebar({
               {!collapsed && <span>{label}</span>}
               {!collapsed && id === "conversations" && conversationCount > 0 && (
                 <span className="folder-count">{conversationCount}</span>
+              )}
+              {!collapsed && id === "drafts" && draftCount > 0 && (
+                <span className="folder-count">{draftCount}</span>
               )}
             </button>
           ))}

@@ -1,6 +1,6 @@
 // Defines shared types and folder options for inbox components.
 // Defines shared types and folder options for inbox components.
-import { FiMessageCircle, FiShield, FiTrash2 } from "react-icons/fi";
+import { FiArchive, FiFileText, FiMessageCircle, FiSend, FiShield, FiTrash2 } from "react-icons/fi";
 
 export type Conversation = {
   _id: string;
@@ -10,6 +10,10 @@ export type Conversation = {
   lastMessageAt: string;
   lastMessagePreview: string;
   lastMessageFrom: string;
+  lastMessageId?: string;
+  messageIds?: string[];
+  unread?: boolean;
+  isDraft?: boolean;
 };
 
 export type MessageAttachment = {
@@ -29,14 +33,39 @@ export type EmailMessage = {
   html: string;
   date: string;
   folder: MessageFolder;
+  read: boolean;
   attachments: MessageAttachment[];
 };
 
-export type Folder = "conversations" | "spam" | "trash";
-export type MessageFolder = "inbox" | "spam" | "trash" | "sent";
+export type DraftAttachment = {
+  filename: string;
+  contentType: string;
+  size: number;
+  content: string;
+};
+
+export type DraftMessage = {
+  _id: string;
+  to: string[];
+  subject: string;
+  text: string;
+  html: string;
+  date: string;
+  attachments: DraftAttachment[];
+};
+
+export type CompositionSeed = Pick<DraftMessage, "to" | "subject" | "text" | "html" | "attachments"> & {
+  draftId?: string;
+};
+
+export type Folder = "conversations" | "sent" | "drafts" | "archive" | "spam" | "trash";
+export type MessageFolder = "inbox" | "archive" | "spam" | "trash" | "sent" | "drafts";
 
 export const folders: { id: Folder; label: string; icon: typeof FiMessageCircle }[] = [
   { id: "conversations", label: "Conversations", icon: FiMessageCircle },
+  { id: "sent", label: "Sent", icon: FiSend },
+  { id: "drafts", label: "Drafts", icon: FiFileText },
+  { id: "archive", label: "Archive", icon: FiArchive },
   { id: "spam", label: "Spam", icon: FiShield },
   { id: "trash", label: "Trash", icon: FiTrash2 },
 ];

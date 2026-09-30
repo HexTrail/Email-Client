@@ -48,7 +48,7 @@ const MessageSchema = new Schema(
           favorite: { type: Boolean, default: false },
           folder: {
             type: String,
-            enum: ["inbox", "spam", "trash"],
+            enum: ["inbox", "archive", "spam", "trash"],
             default: "inbox",
           },
         },
@@ -61,7 +61,7 @@ const MessageSchema = new Schema(
     senderState: {
       folder: {
         type: String,
-        enum: ["sent", "drafts", "trash"],
+        enum: ["sent", "drafts", "archive", "trash"],
         default: "sent",
       },
     },

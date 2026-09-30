@@ -50,9 +50,12 @@ PhoneMail is an in-development email client that uses phone numbers as account i
 | SMS one-time-code verification and password recovery | Implemented; requires Twilio Verify credentials |
 | HTTP-only JWT session cookie and protected API routes | Implemented |
 | IVR account creation through a Twilio voice webhook | Implemented |
-| Compose and send plain-text mail to local-domain addresses | Implemented through local SMTP |
+| Compose and send formatted mail with attachments to local-domain addresses | Implemented through local SMTP |
+| Reply to and forward messages | Implemented in conversation view |
+| Autosaved, editable, and discardable drafts | Implemented |
 | Conversation list, full message history, and message attachments | Implemented |
-| Per-user Conversations, Spam, and Trash folders with message restore | Implemented |
+| Per-user Conversations, Sent, Drafts, Archive, Spam, and Trash folders | Implemented |
+| Per-message read/unread state and bulk archive/read/trash/restore | Implemented |
 | Incoming spam classification | Basic content heuristic; not a replacement for a dedicated spam service |
 | Advanced mail search | Not implemented; search currently filters conversation summaries |
 | Redis caching and end-to-end encryption | Planned; not implemented |

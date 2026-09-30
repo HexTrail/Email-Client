@@ -1,9 +1,10 @@
 // Collects message details and submits outgoing email.
 // Collects message details and submits outgoing email.
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import axios from "axios";
 import { FiBold, FiItalic, FiLink, FiList, FiPaperclip, FiSend, FiUnderline, FiX } from "react-icons/fi";
+import type { CompositionSeed, DraftAttachment } from "./homeTypes.ts";
 
 const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
 const COUNTRY_CODE_REMINDER = "Add the country code, for example +14155550123@phonemail.test.";
@@ -45,6 +46,16 @@ function formatFileSize(size: number) {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+  function escapeHtml(value: string) {
+    return value.replace(/[&<>"']/g, (character) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    })[character] || character);
+  }
+
 function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -56,18 +67,22 @@ function readFileAsBase64(file: File): Promise<string> {
 
 type ComposeModalProps = {
   open: boolean;
+  seed: CompositionSeed | null;
   onClose: () => void;
+  onDiscard: () => void;
   onSent: () => void;
 };
 
-export default function ComposeModal({ open, onClose, onSent }: ComposeModalProps) {
-  const [to, setTo] = useState("");
-  const [subject, setSubject] = useState("");
-  const [text, setText] = useState("");
-  const [html, setHtml] = useState("");
-  const [attachments, setAttachments] = useState<File[]>([]);
+export default function ComposeModal({ open, seed, onClose, onDiscard, onSent }: ComposeModalProps) {
+  const [to, setTo] = useState(seed?.to.join(", ") || "");
+  const [subject, setSubject] = useState(seed?.subject || "");
+  const [text, setText] = useState(seed?.text || "");
+  const [html, setHtml] = useState(seed?.html || "");
+  const [attachments, setAttachments] = useState<DraftAttachment[]>(seed?.attachments || []);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [draftStatus, setDraftStatus] = useState(seed?.draftId ? "Draft loaded" : "");
+  const [hasSavedDraft, setHasSavedDraft] = useState(Boolean(seed?.draftId));
   const [activeFormats, setActiveFormats] = useState<ActiveFormats>({
     bold: false,
     italic: false,
@@ -78,6 +93,9 @@ export default function ComposeModal({ open, onClose, onSent }: ComposeModalProp
   });
   const editorRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const draftIdRef = useRef<string | undefined>(seed?.draftId);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const recipientMissingCountryCode = to
     .split(",")
     .map((recipient) => recipient.trim())
@@ -91,7 +109,72 @@ export default function ComposeModal({ open, onClose, onSent }: ComposeModalProp
     return () => document.removeEventListener("selectionchange", updateActiveFormats);
   }, [open]);
 
+  const initialEditorHtml = seed?.html || escapeHtml(seed?.text || "").replace(/\n/g, "<br>");
+  useEffect(() => {
+    if (open && editorRef.current) editorRef.current.innerHTML = initialEditorHtml;
+  }, [initialEditorHtml, open]);
+
+  const saveDraft = useCallback(async () => {
+    const hasContent = Boolean(to.trim() || subject.trim() || text.trim() || html.trim() || attachments.length || draftIdRef.current);
+    if (!hasContent) return;
+    const recipients = to.split(",").map((address) => address.trim()).filter(Boolean);
+    saveQueueRef.current = saveQueueRef.current.catch(() => undefined).then(async () => {
+      setDraftStatus("Saving draft...");
+      try {
+        const response = await axios.post("/api/drafts", {
+          draftId: draftIdRef.current,
+          to: recipients,
+          subject,
+          text,
+          html,
+          attachments,
+        }, { withCredentials: true });
+        draftIdRef.current = response.data.draftId;
+            setHasSavedDraft(true);
+        setDraftStatus("Draft saved");
+      } catch {
+        setDraftStatus("Draft not saved");
+      }
+    });
+    await saveQueueRef.current;
+  }, [attachments, html, subject, text, to]);
+
+  useEffect(() => {
+    if (!open || sending) return;
+    const hasContent = Boolean(to.trim() || subject.trim() || text.trim() || html.trim() || attachments.length || draftIdRef.current);
+    if (!hasContent) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => void saveDraft(), 700);
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, [attachments, html, open, saveDraft, sending, subject, text, to]);
+
   if (!open) return null;
+
+  async function closeAndSave() {
+    if (sending) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    await saveDraft();
+    onClose();
+  }
+
+  async function discardDraft() {
+    if (sending) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    await saveQueueRef.current.catch(() => undefined);
+    if (draftIdRef.current) {
+      try {
+        await axios.delete(`/api/drafts/${draftIdRef.current}`, { withCredentials: true });
+      } catch {
+        setError("We couldn't discard this draft.");
+        return;
+      }
+    }
+    draftIdRef.current = undefined;
+        setHasSavedDraft(false);
+        onDiscard();
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -121,16 +204,13 @@ export default function ComposeModal({ open, onClose, onSent }: ComposeModalProp
       return;
     }
 
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    await saveDraft();
     setSending(true);
     try {
-      const encodedAttachments = await Promise.all(attachments.map(async (file) => ({
-        filename: file.name,
-        contentType: file.type || "application/octet-stream",
-        content: await readFileAsBase64(file),
-      })));
       await axios.post(
         "/api/send-email",
-        { to: recipients, subject: subject.trim(), text: messageText, html: messageHtml, attachments: encodedAttachments },
+        { to: recipients, subject: subject.trim(), text: messageText, html: messageHtml, attachments, draftId: draftIdRef.current },
         { withCredentials: true },
       );
       setTo("");
@@ -138,6 +218,8 @@ export default function ComposeModal({ open, onClose, onSent }: ComposeModalProp
       setText("");
       setHtml("");
       setAttachments([]);
+      draftIdRef.current = undefined;
+      setHasSavedDraft(false);
       if (editorRef.current) editorRef.current.innerHTML = "";
       onSent();
     } catch (requestError) {
@@ -161,10 +243,15 @@ export default function ComposeModal({ open, onClose, onSent }: ComposeModalProp
     setActiveFormats(getActiveFormats(editorRef.current));
   }
 
-  function addAttachments(files: FileList | null) {
+  async function addAttachments(files: FileList | null) {
     if (!files?.length) return;
-    const additions = Array.from(files);
-    const totalBytes = [...attachments, ...additions].reduce((total, file) => total + file.size, 0);
+    const additions = await Promise.all(Array.from(files).map(async (file) => ({
+      filename: file.name,
+      contentType: file.type || "application/octet-stream",
+      size: file.size,
+      content: await readFileAsBase64(file),
+    })));
+    const totalBytes = [...attachments, ...additions].reduce((total, attachment) => total + attachment.size, 0);
     if (totalBytes > MAX_ATTACHMENT_BYTES) {
       setError("Attachments must total 8 MB or less.");
       return;
@@ -176,7 +263,7 @@ export default function ComposeModal({ open, onClose, onSent }: ComposeModalProp
   return createPortal(
     (
     <div className="compose-overlay" role="presentation" onMouseDown={(event) => {
-      if (event.target === event.currentTarget && !sending) onClose();
+      if (event.target === event.currentTarget && !sending) void closeAndSave();
     }}>
       <section className="compose-modal" role="dialog" aria-modal="true" aria-labelledby="compose-title">
         <div className="compose-modal-header">
@@ -184,7 +271,7 @@ export default function ComposeModal({ open, onClose, onSent }: ComposeModalProp
             <p className="eyebrow">NEW CONVERSATION</p>
             <h2 id="compose-title">Compose message</h2>
           </div>
-          <button className="icon-button" onClick={onClose} disabled={sending} aria-label="Close compose window" title="Close">
+          <button className="icon-button" onClick={() => void closeAndSave()} disabled={sending} aria-label="Save draft and close" title="Save draft and close">
             <FiX />
           </button>
         </div>
@@ -257,24 +344,26 @@ export default function ComposeModal({ open, onClose, onSent }: ComposeModalProp
               multiple
               hidden
               onChange={(event) => {
-                addAttachments(event.currentTarget.files);
+                void addAttachments(event.currentTarget.files);
                 event.currentTarget.value = "";
               }}
             />
             <button type="button" className="compose-attach" onClick={() => fileInputRef.current?.click()} disabled={sending}>
               <FiPaperclip aria-hidden="true" /> Attach files
             </button>
-            {attachments.map((file, index) => (
-              <div className="compose-attachment" key={`${file.name}-${file.lastModified}-${index}`}>
-                <span title={file.name}>{file.name} <small>{formatFileSize(file.size)}</small></span>
-                <button type="button" title={`Remove ${file.name}`} aria-label={`Remove ${file.name}`} onClick={() => setAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))} disabled={sending}><FiX /></button>
+            {attachments.map((attachment, index) => (
+              <div className="compose-attachment" key={`${attachment.filename}-${index}`}>
+                <span title={attachment.filename}>{attachment.filename} <small>{formatFileSize(attachment.size)}</small></span>
+                <button type="button" title={`Remove ${attachment.filename}`} aria-label={`Remove ${attachment.filename}`} onClick={() => setAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))} disabled={sending}><FiX /></button>
               </div>
             ))}
             <small className="compose-attachment-limit">8 MB total</small>
           </div>
           {error && <p className="compose-error" role="alert">{error}</p>}
           <div className="compose-actions">
-            <button type="button" className="compose-cancel" onClick={onClose} disabled={sending}>Cancel</button>
+                  {hasSavedDraft && <button type="button" className="compose-discard" onClick={() => void discardDraft()} disabled={sending}>Discard draft</button>}
+            <span className="draft-status" role="status">{draftStatus}</span>
+            <button type="button" className="compose-cancel" onClick={() => void closeAndSave()} disabled={sending}>Save & close</button>
             <button type="submit" className="compose-send" disabled={sending}>
               <FiSend aria-hidden="true" />
               {sending ? "Sending..." : "Send message"}

@@ -1,8 +1,8 @@
 // Displays a selected conversation and its message details.
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { FiArrowLeft, FiDownload, FiMoreHorizontal, FiPaperclip, FiRotateCcw, FiShield, FiTrash2 } from "react-icons/fi";
-import type { Conversation, EmailMessage, Folder } from "./homeTypes.ts";
+import { FiArchive, FiArrowLeft, FiCheck, FiCornerUpLeft, FiDownload, FiMail, FiMoreHorizontal, FiPaperclip, FiRotateCcw, FiShare2, FiShield, FiTrash2 } from "react-icons/fi";
+import type { CompositionSeed, Conversation, EmailMessage, Folder } from "./homeTypes.ts";
 import { formatAddress, formatTime, initials } from "./homeUtils.ts";
 
 type ConversationDetailProps = {
@@ -11,6 +11,9 @@ type ConversationDetailProps = {
   activeFolder: Folder;
   onBack: () => void;
   onMessageMoved: () => void;
+  onMessageUpdated: () => void;
+  onReply: (seed: CompositionSeed) => void;
+  onForward: (seed: CompositionSeed) => void;
 };
 
 export default function ConversationDetail({
@@ -19,6 +22,9 @@ export default function ConversationDetail({
   activeFolder,
   onBack,
   onMessageMoved,
+  onMessageUpdated,
+  onReply,
+  onForward,
 }: ConversationDetailProps) {
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [copyMessage, setCopyMessage] = useState("");
@@ -86,7 +92,7 @@ export default function ConversationDetail({
     setOptionsOpen(false);
   }
 
-  async function moveMessage(messageId: string, folder: "spam" | "trash" | "restore") {
+  async function moveMessage(messageId: string, folder: "archive" | "spam" | "trash" | "restore") {
     setMovingMessageId(messageId);
     setMessageActionError("");
     try {
@@ -96,6 +102,66 @@ export default function ConversationDetail({
       setMessageActionError("We couldn't update this message.");
     } finally {
       setMovingMessageId(null);
+    }
+  }
+
+  async function toggleRead(message: EmailMessage) {
+    try {
+      await axios.patch(`/api/messages/${message._id}/state`, { read: !message.read }, { withCredentials: true });
+      setMessageResult((current) => ({
+        ...current,
+        messages: current.messages.map((item) => item._id === message._id ? { ...item, read: !message.read } : item),
+      }));
+      onMessageUpdated();
+    } catch {
+      setMessageActionError("We couldn't update this message.");
+    }
+  }
+
+  function replyTo(message: EmailMessage) {
+    const ownAddress = currentUserPhone?.toLowerCase();
+    const isOwnMessage = message.from.slice(0, message.from.lastIndexOf("@")).toLowerCase() === ownAddress;
+    const recipients = isOwnMessage
+      ? message.to.filter((recipient) => recipient.slice(0, recipient.lastIndexOf("@")).toLowerCase() !== ownAddress)
+      : [message.from];
+    const subject = message.subject.toLowerCase().startsWith("re:") ? message.subject : `Re: ${message.subject}`;
+    const quotedText = (message.text || "").split("\n").map((line) => `> ${line}`).join("\n");
+    onReply({
+      to: recipients,
+      subject,
+      text: `\n\n${formatAddress(message.from)} wrote:\n${quotedText}`,
+      html: "",
+      attachments: [],
+    });
+  }
+
+  async function forwardMessage(message: EmailMessage) {
+    const subject = message.subject.toLowerCase().startsWith("fwd:") ? message.subject : `Fwd: ${message.subject}`;
+    const details = [
+      "---------- Forwarded message ----------",
+      `From: ${message.from}`,
+      `To: ${message.to.join(", ")}`,
+      `Date: ${new Date(message.date).toLocaleString()}`,
+      `Subject: ${message.subject}`,
+      "",
+      message.text,
+    ].join("\n");
+    try {
+      const forwardedAttachments = await Promise.all(message.attachments.map(async (attachment) => {
+        const response = await axios.get(attachment.downloadUrl, { responseType: "arraybuffer", withCredentials: true });
+        const bytes = new Uint8Array(response.data as ArrayBuffer);
+        let binary = "";
+        bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+        return {
+          filename: attachment.filename,
+          contentType: attachment.contentType,
+          size: attachment.size,
+          content: btoa(binary),
+        };
+      }));
+      onForward({ to: [], subject, text: `\n\n${details}`, html: "", attachments: forwardedAttachments });
+    } catch {
+      setMessageActionError("We couldn't prepare the forwarded attachments.");
     }
   }
 
@@ -195,6 +261,13 @@ export default function ConversationDetail({
                     </div>
                   )}
                   <div className="message-actions">
+                    {activeFolder !== "trash" && activeFolder !== "spam" && (
+                      <>
+                        {!isOwnMessage && <button className="message-action" type="button" title={message.read ? "Mark unread" : "Mark read"} aria-label={message.read ? "Mark unread" : "Mark read"} onClick={() => void toggleRead(message)}>{message.read ? <FiMail /> : <FiCheck />}</button>}
+                        <button className="message-action" type="button" title="Reply" aria-label="Reply" onClick={() => replyTo(message)}><FiCornerUpLeft /></button>
+                        <button className="message-action" type="button" title="Forward" aria-label="Forward" onClick={() => void forwardMessage(message)}><FiShare2 /></button>
+                      </>
+                    )}
                     {activeFolder === "trash" ? (
                       <button
                         className="message-action"
@@ -206,6 +279,11 @@ export default function ConversationDetail({
                       ><FiRotateCcw /></button>
                     ) : (
                       <>
+                        {activeFolder === "archive" ? (
+                          <button className="message-action" type="button" title="Restore to inbox" aria-label="Restore to inbox" disabled={movingMessageId === message._id} onClick={() => void moveMessage(message._id, "restore")}><FiRotateCcw /></button>
+                        ) : activeFolder !== "spam" && (
+                          <button className="message-action" type="button" title="Archive message" aria-label="Archive message" disabled={movingMessageId === message._id} onClick={() => void moveMessage(message._id, "archive")}><FiArchive /></button>
+                        )}
                         {activeFolder === "spam" ? (
                           <button
                             className="message-action"

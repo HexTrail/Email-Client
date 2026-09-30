@@ -71,12 +71,53 @@ function isInFolder(message, phone, address, folder) {
 }
 
 function parseFolder(value) {
-    return ['conversations', 'spam', 'trash'].includes(value) ? value : 'conversations';
+    return ['conversations', 'sent', 'archive', 'spam', 'trash'].includes(value) ? value : 'conversations';
+}
+
+function ownsMessage(message, address) {
+    return message?.to?.some((recipient) => recipient.toLowerCase() === address)
+        || message?.from?.toLowerCase() === address;
+}
+
+function setMessageFolder(message, phone, address, targetFolder) {
+    const ownsRecipientCopy = message.to?.some((recipient) => recipient.toLowerCase() === address);
+    const ownsSenderCopy = message.from?.toLowerCase() === address;
+    if (targetFolder === 'spam' && !ownsRecipientCopy) return false;
+
+    if (ownsRecipientCopy) {
+        const currentState = getRecipientState(message, phone) || {};
+        const folder = targetFolder === 'restore' ? 'inbox' : targetFolder;
+        const nextState = { ...currentState, folder };
+        if (typeof message.recipientState?.set === 'function') {
+            message.recipientState.set(phone, nextState);
+        } else {
+            message.recipientState = { ...message.recipientState, [phone]: nextState };
+        }
+    }
+    if (ownsSenderCopy && !ownsRecipientCopy) {
+        message.senderState = {
+            ...message.senderState,
+            folder: targetFolder === 'restore' ? 'sent' : targetFolder,
+        };
+    }
+    return true;
+}
+
+function setMessageRead(message, phone, address, read) {
+    if (!message.to?.some((recipient) => recipient.toLowerCase() === address)) return false;
+    const currentState = getRecipientState(message, phone) || {};
+    const nextState = { ...currentState, read };
+    if (typeof message.recipientState?.set === 'function') {
+        message.recipientState.set(phone, nextState);
+    } else {
+        message.recipientState = { ...message.recipientState, [phone]: nextState };
+    }
+    return true;
 }
 
 //endpoint to send email using smtp server created.
 router.post('/send-email', authMiddleware, async (req, res) => {
-    const { to, subject, text, html } = req.body;
+    const { to, subject, text, html, draftId } = req.body;
     const recipients = (Array.isArray(to) ? to : typeof to === 'string' ? to.split(',') : [])
         .map((address) => typeof address === 'string' ? address.trim() : '')
         .filter(Boolean);
@@ -99,6 +140,14 @@ router.post('/send-email', authMiddleware, async (req, res) => {
     const from = getMailboxAddress(req.user.phone);
 
     try {
+        let draft;
+        if (draftId) {
+            draft = await MessageModel.findOne({ _id: draftId });
+            if (!draft || draft.from.toLowerCase() !== from.toLowerCase() || draft.senderState?.folder !== 'drafts') {
+                return res.status(404).json({ success: false, message: 'Draft not found' });
+            }
+        }
+
         const domain = (process.env.DOMAIN || 'phonemail.test').trim().toLowerCase();
         for (const recipient of recipients) {
             const separator = recipient.lastIndexOf('@');
@@ -123,10 +172,109 @@ router.post('/send-email', authMiddleware, async (req, res) => {
             html: safeHtml,
             attachments,
         });
+        if (draft) await MessageModel.deleteOne({ _id: draft._id });
         return res.status(200).json({ success: true, message: "Email sent successfully" });
     } catch (error) {
         console.error("[email] failed to send email:", error);
         return res.status(500).json({ success: false, message: "Internal server error" });
+    }
+});
+
+router.get('/drafts', authMiddleware, async (req, res) => {
+    const address = getMailboxAddress(req.user.phone).toLowerCase();
+    try {
+        const drafts = await MessageModel.find({ from: address });
+        return res.status(200).json({
+            success: true,
+            drafts: drafts
+                .filter((draft) => draft.from?.toLowerCase() === address && draft.senderState?.folder === 'drafts')
+                .sort((left, right) => new Date(right.updatedAt || right.date) - new Date(left.updatedAt || left.date))
+                .map((draft) => ({
+                    _id: draft._id,
+                    to: draft.to || [],
+                    subject: draft.subject || '',
+                    text: draft.text || '',
+                    html: sanitizeEmailHtml(draft.html || ''),
+                    date: draft.updatedAt || draft.date,
+                    attachments: (draft.attachments || []).map((attachment) => ({
+                        filename: attachment.filename,
+                        contentType: attachment.contentType,
+                        size: attachment.size,
+                        content: Buffer.from(attachment.content).toString('base64'),
+                    })),
+                })),
+        });
+    } catch (error) {
+        console.error('[email] failed to fetch drafts:', error);
+        return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+});
+
+router.post('/drafts', authMiddleware, async (req, res) => {
+    const address = getMailboxAddress(req.user.phone);
+    const recipients = (Array.isArray(req.body.to) ? req.body.to : [])
+        .filter((recipient) => typeof recipient === 'string')
+        .map((recipient) => recipient.trim())
+        .filter(Boolean);
+    const subject = typeof req.body.subject === 'string' ? req.body.subject.slice(0, 998) : '';
+    const text = typeof req.body.text === 'string' ? req.body.text : '';
+    const html = typeof req.body.html === 'string' ? sanitizeEmailHtml(req.body.html) : '';
+    let attachments;
+    try {
+        attachments = parseAttachments(req.body.attachments);
+    } catch (error) {
+        return res.status(400).json({ success: false, message: error.message });
+    }
+
+    try {
+        let draft = req.body.draftId ? await MessageModel.findOne({ _id: req.body.draftId }) : null;
+        if (req.body.draftId && (!draft || draft.from.toLowerCase() !== address.toLowerCase() || draft.senderState?.folder !== 'drafts')) {
+            return res.status(404).json({ success: false, message: 'Draft not found' });
+        }
+        if (!draft) {
+            const conversation = await ConversationModel.create({
+                participants: [req.user.phone],
+                isGroup: false,
+            });
+            draft = await MessageModel.create({
+                conversation: conversation._id,
+                from: address,
+                to: recipients,
+                subject,
+                text,
+                html,
+                attachments,
+                senderState: { folder: 'drafts' },
+                date: new Date(),
+            });
+        } else {
+            draft.to = recipients;
+            draft.subject = subject;
+            draft.text = text;
+            draft.html = html;
+            draft.attachments = attachments;
+            draft.date = new Date();
+            await draft.save();
+        }
+        return res.status(200).json({ success: true, draftId: String(draft._id) });
+    } catch (error) {
+        console.error('[email] failed to save draft:', error);
+        return res.status(500).json({ success: false, message: 'Could not save draft' });
+    }
+});
+
+router.delete('/drafts/:draftId', authMiddleware, async (req, res) => {
+    const address = getMailboxAddress(req.user.phone).toLowerCase();
+    try {
+        const draft = await MessageModel.findOne({ _id: req.params.draftId });
+        if (!draft || draft.from?.toLowerCase() !== address || draft.senderState?.folder !== 'drafts') {
+            return res.status(404).json({ success: false, message: 'Draft not found' });
+        }
+        await MessageModel.deleteOne({ _id: draft._id });
+        return res.status(200).json({ success: true });
+    } catch (error) {
+        console.error('[email] failed to delete draft:', error);
+        return res.status(500).json({ success: false, message: 'Could not delete draft' });
     }
 });
 
@@ -152,8 +300,13 @@ router.get('/conversations', authMiddleware, async (req, res) => {
         const mailboxMessages = await MessageModel.find({ $or: [{ to: address }, { from: address }] });
         const visibleMessages = mailboxMessages.filter((message) => isInFolder(message, phone, address, folder));
         const latestByConversation = new Map();
+        const messageIdsByConversation = new Map();
+        const unreadConversationIds = new Set();
         for (const message of visibleMessages) {
             const conversationId = String(message.conversation);
+            messageIdsByConversation.set(conversationId, [...(messageIdsByConversation.get(conversationId) || []), String(message._id)]);
+            if (message.to?.some((recipient) => recipient.toLowerCase() === address)
+                && getRecipientState(message, phone)?.read !== true) unreadConversationIds.add(conversationId);
             const previous = latestByConversation.get(conversationId);
             if (!previous || new Date(message.date) > new Date(previous.date)) {
                 latestByConversation.set(conversationId, message);
@@ -177,6 +330,9 @@ router.get('/conversations', authMiddleware, async (req, res) => {
                 lastMessageAt: latestMessage.date,
                 lastMessagePreview: latestMessage.text || '',
                 lastMessageFrom: latestMessage.from.split('@')[0],
+                lastMessageId: String(latestMessage._id),
+                messageIds: messageIdsByConversation.get(String(conversation._id)) || [],
+                unread: unreadConversationIds.has(String(conversation._id)),
             };
         }).sort((left, right) => new Date(right.lastMessageAt) - new Date(left.lastMessageAt));
         return res.status(200).json({ success: true, conversations });
@@ -210,6 +366,7 @@ router.get('/conversations/:conversationId/messages', authMiddleware, async (req
                 html: sanitizeEmailHtml(message.html || ''),
                 date: message.date,
                 folder: getUserFolder(message, req.user.phone, address),
+                read: Boolean(getRecipientState(message, req.user.phone)?.read),
                 attachments: (message.attachments || []).map((attachment, index) => ({
                     filename: attachment.filename,
                     contentType: attachment.contentType,
@@ -228,42 +385,70 @@ router.get('/conversations/:conversationId/messages', authMiddleware, async (req
 router.patch('/messages/:messageId/folder', authMiddleware, async (req, res) => {
     const address = getMailboxAddress(req.user.phone).toLowerCase();
     const targetFolder = req.body.folder;
-    if (!['inbox', 'spam', 'trash', 'restore'].includes(targetFolder)) {
+    if (!['inbox', 'archive', 'spam', 'trash', 'restore'].includes(targetFolder)) {
         return res.status(400).json({ success: false, message: 'Choose a valid message folder' });
     }
 
     try {
         const message = await MessageModel.findOne({ _id: req.params.messageId });
-        const ownsRecipientCopy = message?.to?.some((recipient) => recipient.toLowerCase() === address);
-        const ownsSenderCopy = message?.from?.toLowerCase() === address;
-        if (!message || (!ownsRecipientCopy && !ownsSenderCopy)) {
+        if (!message || !ownsMessage(message, address)) {
             return res.status(404).json({ success: false, message: 'Message not found' });
         }
-        if (targetFolder === 'spam' && !ownsRecipientCopy) {
+        if (!setMessageFolder(message, req.user.phone, address, targetFolder)) {
             return res.status(400).json({ success: false, message: 'Only received messages can be marked as spam' });
-        }
-
-        if (ownsRecipientCopy) {
-            const currentState = getRecipientState(message, req.user.phone) || {};
-            const folder = targetFolder === 'restore' ? 'inbox' : targetFolder;
-            const nextState = { ...currentState, folder };
-            if (typeof message.recipientState?.set === 'function') {
-                message.recipientState.set(req.user.phone, nextState);
-            } else {
-                message.recipientState = { ...message.recipientState, [req.user.phone]: nextState };
-            }
-        }
-        if (ownsSenderCopy && !ownsRecipientCopy) {
-            message.senderState = {
-                ...message.senderState,
-                folder: targetFolder === 'restore' ? 'sent' : targetFolder,
-            };
         }
         await message.save();
         return res.status(200).json({ success: true });
     } catch (error) {
         console.error('[email] failed to update message folder:', error);
         return res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+});
+
+router.patch('/messages/:messageId/state', authMiddleware, async (req, res) => {
+    if (typeof req.body.read !== 'boolean') {
+        return res.status(400).json({ success: false, message: 'Read state must be true or false' });
+    }
+    const address = getMailboxAddress(req.user.phone).toLowerCase();
+    try {
+        const message = await MessageModel.findOne({ _id: req.params.messageId });
+        if (!message || !setMessageRead(message, req.user.phone, address, req.body.read)) {
+            return res.status(404).json({ success: false, message: 'Received message not found' });
+        }
+        await message.save();
+        return res.status(200).json({ success: true });
+    } catch (error) {
+        console.error('[email] failed to update message read state:', error);
+        return res.status(500).json({ success: false, message: 'Could not update read state' });
+    }
+});
+
+router.patch('/messages/bulk', authMiddleware, async (req, res) => {
+    const { messageIds, action } = req.body;
+    if (!Array.isArray(messageIds) || messageIds.length === 0 || messageIds.length > 100
+        || !messageIds.every((id) => typeof id === 'string')
+        || !['read', 'unread', 'archive', 'trash', 'restore'].includes(action)) {
+        return res.status(400).json({ success: false, message: 'Choose messages and a valid bulk action' });
+    }
+
+    const address = getMailboxAddress(req.user.phone).toLowerCase();
+    try {
+        let updated = 0;
+        for (const messageId of new Set(messageIds)) {
+            const message = await MessageModel.findOne({ _id: messageId });
+            if (!message || !ownsMessage(message, address)) continue;
+            const changed = action === 'read' || action === 'unread'
+                ? setMessageRead(message, req.user.phone, address, action === 'read')
+                : setMessageFolder(message, req.user.phone, address, action);
+            if (changed) {
+                await message.save();
+                updated += 1;
+            }
+        }
+        return res.status(200).json({ success: true, updated });
+    } catch (error) {
+        console.error('[email] failed to apply bulk message action:', error);
+        return res.status(500).json({ success: false, message: 'Could not update selected messages' });
     }
 });
 
