@@ -12,7 +12,7 @@ type ConversationListProps = {
   selectedId: string | null;
   loading: boolean;
   loadError: string;
-  search: string;
+  searchActive: boolean;
   onSelect: (id: string) => void;
   onRefresh: () => void;
   onRetry: () => void;
@@ -28,7 +28,7 @@ export default function ConversationList({
   selectedId,
   loading,
   loadError,
-  search,
+  searchActive,
   onSelect,
   onRefresh,
   onRetry,
@@ -36,14 +36,6 @@ export default function ConversationList({
   onToggleSelected,
   onBulkAction,
 }: ConversationListProps) {
-  const filteredConversations = conversations.filter((conversation) => {
-    const otherParticipants = conversation.participants
-      .filter((participant) => participant !== currentUserPhone)
-      .map(formatAddress)
-      .join(" ");
-    const title = conversation.isGroup ? conversation.groupName : otherParticipants;
-    return `${title} ${conversation.lastMessagePreview}`.toLowerCase().includes(search.toLowerCase());
-  });
   const folderLabel = folders.find((folder) => folder.id === activeFolder)?.label ?? "Conversations";
 
   return (
@@ -83,11 +75,11 @@ export default function ConversationList({
               <span>{loadError}</span>
               <button onClick={onRetry}>Try again</button>
             </div>
-          ) : filteredConversations.length === 0 ? (
+          ) : conversations.length === 0 ? (
             <div className="list-message">
-              {search ? "No conversations match your search." : `Nothing in ${folderLabel.toLowerCase()} yet.`}
+              {searchActive ? "No messages match these search criteria." : `Nothing in ${folderLabel.toLowerCase()} yet.`}
             </div>
-          ) : filteredConversations.map((conversation, index) => {
+          ) : conversations.map((conversation, index) => {
               const participantNames = conversation.participants
                 .filter((participant) => participant !== currentUserPhone)
                 .map(formatAddress);

@@ -1,6 +1,6 @@
 // Loads inbox data and coordinates the authenticated conversation view.
 // Loads inbox data and coordinates the authenticated conversation view.
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../Context/AuthContext.tsx";
@@ -9,20 +9,36 @@ import ConversationList from "../components/home/ConversationList.tsx";
 import ComposeModal from "../components/home/ComposeModal.tsx";
 import MailHeader from "../components/home/MailHeader.tsx";
 import MailSidebar from "../components/home/MailSidebar.tsx";
-import type { CompositionSeed, Conversation, DraftMessage, Folder } from "../components/home/homeTypes.ts";
+import { emptySearchFilters, type CompositionSeed, type Conversation, type DraftMessage, type Folder, type SearchFilters } from "../components/home/homeTypes.ts";
 import "./Home.css";
 
-async function fetchConversations(folder: Folder): Promise<Conversation[]> {
+function getSearchParams(search: string, filters: SearchFilters, folder?: Folder) {
+  return {
+    folder,
+    q: search.trim() || undefined,
+    from: filters.from.trim() || undefined,
+    to: filters.to.trim() || undefined,
+    after: filters.after || undefined,
+    before: filters.before || undefined,
+    unread: filters.unread ? "true" : undefined,
+    hasAttachment: filters.hasAttachment ? "true" : undefined,
+  };
+}
+
+async function fetchConversations(folder: Folder, search: string, filters: SearchFilters): Promise<Conversation[]> {
   const response = await axios.get("/api/conversations", {
-    params: { folder },
+    params: getSearchParams(search, filters, folder),
     withCredentials: true,
   });
   return Array.isArray(response.data.conversations) ? response.data.conversations : [];
 }
 
-async function fetchDrafts(): Promise<DraftMessage[]> {
-  const response = await axios.get("/api/drafts", { withCredentials: true });
-  return Array.isArray(response.data.drafts) ? response.data.drafts : [];
+async function fetchDrafts(search = "", filters = emptySearchFilters): Promise<{ drafts: DraftMessage[]; total: number }> {
+  const response = await axios.get("/api/drafts", { params: getSearchParams(search, filters), withCredentials: true });
+  return {
+    drafts: Array.isArray(response.data.drafts) ? response.data.drafts : [],
+    total: Number(response.data.total) || 0,
+  };
 }
 
 function draftAsConversation(draft: DraftMessage): Conversation {
@@ -46,9 +62,11 @@ function Home() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [inboxCount, setInboxCount] = useState(0);
   const [drafts, setDrafts] = useState<DraftMessage[]>([]);
+  const [draftCount, setDraftCount] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeFolder, setActiveFolder] = useState<Folder>("conversations");
   const [search, setSearch] = useState("");
+  const [searchFilters, setSearchFilters] = useState<SearchFilters>(emptySearchFilters);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileFoldersOpen, setMobileFoldersOpen] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
@@ -57,52 +75,44 @@ function Home() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const requestSequence = useRef(0);
 
-  async function loadConversations(folder: Folder = activeFolder) {
+  const loadConversations = useCallback(async (folder: Folder, query: string, filters: SearchFilters) => {
+    const requestId = ++requestSequence.current;
     setLoading(true);
     setLoadError("");
     try {
       let results: Conversation[];
       if (folder === "drafts") {
-        const fetchedDrafts = await fetchDrafts();
-        setDrafts(fetchedDrafts);
-        results = fetchedDrafts.map(draftAsConversation);
+        const fetchedDrafts = await fetchDrafts(query, filters);
+        setDraftCount(fetchedDrafts.total);
+        setDrafts(fetchedDrafts.drafts);
+        results = fetchedDrafts.drafts.map(draftAsConversation);
       } else {
-        const [fetchedDrafts, fetchedConversations] = await Promise.all([fetchDrafts(), fetchConversations(folder)]);
-        setDrafts(fetchedDrafts);
+        const [fetchedDrafts, fetchedConversations] = await Promise.all([
+          fetchDrafts(),
+          fetchConversations(folder, query, filters),
+        ]);
+        setDraftCount(fetchedDrafts.total);
+        setDrafts(fetchedDrafts.drafts);
         results = fetchedConversations;
         if (folder === "conversations") setInboxCount(results.length);
       }
+      if (requestId !== requestSequence.current) return;
       setConversations(results);
       setSelectedIds([]);
       setSelectedId((current) => current && results.some((item) => item._id === current) ? current : null);
     } catch {
-      setLoadError("We couldn't load your conversations.");
+      if (requestId === requestSequence.current) setLoadError("We couldn't load your conversations.");
     } finally {
-      setLoading(false);
+      if (requestId === requestSequence.current) setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    let active = true;
-    Promise.all([fetchConversations("conversations"), fetchDrafts()])
-      .then(([results, fetchedDrafts]) => {
-        if (active) {
-          setConversations(results);
-          setInboxCount(results.length);
-          setDrafts(fetchedDrafts);
-        }
-      })
-      .catch(() => {
-        if (active) setLoadError("We couldn't load your conversations.");
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
+    const timer = setTimeout(() => void loadConversations(activeFolder, search, searchFilters), 250);
+    return () => clearTimeout(timer);
+  }, [activeFolder, loadConversations, search, searchFilters]);
 
   async function handleSignOut() {
     await signOut();
@@ -121,7 +131,7 @@ function Home() {
     try {
       await axios.patch("/api/messages/bulk", { messageIds, action }, { withCredentials: true });
       setSelectedIds([]);
-      await loadConversations();
+      await loadConversations(activeFolder, search, searchFilters);
     } catch {
       setLoadError("We couldn't update the selected messages.");
     }
@@ -161,14 +171,13 @@ function Home() {
         activeFolder={activeFolder}
         collapsed={collapsed}
         conversationCount={inboxCount}
-        draftCount={drafts.length}
+        draftCount={draftCount}
         mobileOpen={mobileFoldersOpen}
         onFolderSelect={(folder) => {
           setActiveFolder(folder);
           setSelectedId(null);
           setSelectedIds([]);
           setMobileFoldersOpen(false);
-          void loadConversations(folder);
         }}
         onToggleCollapse={() => setCollapsed(!collapsed)}
         onToggleMobile={() => setMobileFoldersOpen(!mobileFoldersOpen)}
@@ -184,6 +193,8 @@ function Home() {
           loadError={loadError}
           search={search}
           onSearchChange={setSearch}
+          searchFilters={searchFilters}
+          onSearchFiltersChange={setSearchFilters}
           onSignOut={() => void handleSignOut()}
           mobileFoldersOpen={mobileFoldersOpen}
           onToggleMobileFolders={() => setMobileFoldersOpen(!mobileFoldersOpen)}
@@ -196,15 +207,15 @@ function Home() {
             selectedId={selectedId}
             loading={loading}
             loadError={loadError}
-            search={search}
+            searchActive={Boolean(search.trim() || Object.values(searchFilters).some(Boolean))}
             selectedIds={selectedIds}
             onToggleSelected={(id) => setSelectedIds((current) => current.includes(id)
               ? current.filter((selectedId) => selectedId !== id)
               : [...current, id])}
             onBulkAction={(action) => void applyBulkAction(action)}
             onSelect={selectConversation}
-            onRefresh={() => void loadConversations()}
-            onRetry={() => void loadConversations()}
+            onRefresh={() => void loadConversations(activeFolder, search, searchFilters)}
+            onRetry={() => void loadConversations(activeFolder, search, searchFilters)}
           />
           <ConversationDetail
             conversation={selectedConversation}
@@ -213,9 +224,9 @@ function Home() {
             onBack={() => setSelectedId(null)}
             onMessageMoved={() => {
               setSelectedId(null);
-              void loadConversations();
+              void loadConversations(activeFolder, search, searchFilters);
             }}
-            onMessageUpdated={() => void loadConversations()}
+            onMessageUpdated={() => void loadConversations(activeFolder, search, searchFilters)}
             onReply={(seed) => {
               openComposer(seed);
             }}
@@ -231,16 +242,16 @@ function Home() {
         seed={composeSeed}
         onClose={() => {
           setComposeOpen(false);
-          void loadConversations();
+          void loadConversations(activeFolder, search, searchFilters);
         }}
         onDiscard={() => {
           setComposeOpen(false);
-          void loadConversations();
+          void loadConversations(activeFolder, search, searchFilters);
         }}
         onSent={() => {
           setComposeOpen(false);
           setComposeSeed(null);
-          void loadConversations();
+          void loadConversations(activeFolder, search, searchFilters);
         }}
       />
     </main>

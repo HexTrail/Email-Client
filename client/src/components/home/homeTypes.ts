@@ -70,6 +70,24 @@ export type CompositionSeed = Pick<DraftMessage, "to" | "cc" | "bcc" | "subject"
 export type Folder = "conversations" | "sent" | "drafts" | "archive" | "spam" | "trash";
 export type MessageFolder = "inbox" | "archive" | "spam" | "trash" | "sent" | "drafts";
 
+export type SearchFilters = {
+  from: string;
+  to: string;
+  after: string;
+  before: string;
+  unread: boolean;
+  hasAttachment: boolean;
+};
+
+export const emptySearchFilters: SearchFilters = {
+  from: "",
+  to: "",
+  after: "",
+  before: "",
+  unread: false,
+  hasAttachment: false,
+};
+
 export const folders: { id: Folder; label: string; icon: typeof FiMessageCircle }[] = [
   { id: "conversations", label: "Conversations", icon: FiMessageCircle },
   { id: "sent", label: "Sent", icon: FiSend },

@@ -96,6 +96,44 @@ function parseFolder(value) {
     return ['conversations', 'sent', 'archive', 'spam', 'trash'].includes(value) ? value : 'conversations';
 }
 
+function parseSearchOptions(query) {
+    const stringValue = (key) => typeof query[key] === 'string' ? query[key].trim() : '';
+    const afterValue = stringValue('after');
+    const beforeValue = stringValue('before');
+    const after = afterValue ? new Date(`${afterValue}T00:00:00.000Z`) : null;
+    const before = beforeValue ? new Date(`${beforeValue}T23:59:59.999Z`) : null;
+    return {
+        query: stringValue('q').slice(0, 250),
+        from: stringValue('from').toLowerCase(),
+        to: stringValue('to').toLowerCase(),
+        after: after && Number.isNaN(after.valueOf()) ? null : after,
+        before: before && Number.isNaN(before.valueOf()) ? null : before,
+        unread: query.unread === 'true',
+        hasAttachment: query.hasAttachment === 'true',
+    };
+}
+
+function matchesSearch(message, options, phone, address) {
+    const isSender = message.from?.toLowerCase() === address;
+    const bccAddresses = (message.bcc || []).map((recipient) => recipient.toLowerCase());
+    const visibleRecipients = [...(message.to || []), ...(message.cc || [])]
+        .map((recipient) => recipient.toLowerCase());
+    if (isSender) visibleRecipients.push(...bccAddresses);
+    else if (bccAddresses.includes(address)) visibleRecipients.push(address);
+
+    if (options.from && !message.from?.toLowerCase().includes(options.from)) return false;
+    if (options.to && !visibleRecipients.some((recipient) => recipient.includes(options.to))) return false;
+    if (options.after && new Date(message.date) < options.after) return false;
+    if (options.before && new Date(message.date) > options.before) return false;
+    if (options.unread && (isSender || getRecipientState(message, phone)?.read === true)) return false;
+    if (options.hasAttachment && !(message.attachments || []).length) return false;
+
+    const searchFields = [message.subject, message.text, message.html, message.from, ...visibleRecipients];
+    const searchableText = searchFields.filter(Boolean).join(' ').toLowerCase();
+    const terms = options.query.match(/"[^"]+"|\S+/g) || [];
+    return terms.every((term) => searchableText.includes(term.replace(/^"|"$/g, '').toLowerCase()));
+}
+
 function ownsMessage(message, address) {
     return getRecipientAddresses(message).includes(address)
         || message?.from?.toLowerCase() === address;
@@ -219,12 +257,16 @@ router.post('/send-email', authMiddleware, async (req, res) => {
 
 router.get('/drafts', authMiddleware, async (req, res) => {
     const address = getMailboxAddress(req.user.phone).toLowerCase();
+    const searchOptions = parseSearchOptions(req.query);
     try {
         const drafts = await MessageModel.find({ from: address });
+        const ownedDrafts = drafts.filter((draft) =>
+            draft.from?.toLowerCase() === address && draft.senderState?.folder === 'drafts');
         return res.status(200).json({
             success: true,
-            drafts: drafts
-                .filter((draft) => draft.from?.toLowerCase() === address && draft.senderState?.folder === 'drafts')
+            total: ownedDrafts.length,
+            drafts: ownedDrafts
+                .filter((draft) => matchesSearch(draft, searchOptions, req.user.phone, address))
                 .sort((left, right) => new Date(right.updatedAt || right.date) - new Date(left.updatedAt || left.date))
                 .map((draft) => ({
                     _id: draft._id,
@@ -348,10 +390,13 @@ router.get('/conversations', authMiddleware, async (req, res) => {
     const phone = req.user.phone;
     const address = getMailboxAddress(phone).toLowerCase();
     const folder = parseFolder(req.query.folder);
+    const searchOptions = parseSearchOptions(req.query);
 
     try {
         const mailboxMessages = await MessageModel.find({ $or: [{ to: address }, { cc: address }, { bcc: address }, { from: address }] });
-        const visibleMessages = mailboxMessages.filter((message) => isInFolder(message, phone, address, folder));
+        const visibleMessages = mailboxMessages.filter((message) =>
+            isInFolder(message, phone, address, folder)
+            && matchesSearch(message, searchOptions, phone, address));
         const latestByConversation = new Map();
         const messageIdsByConversation = new Map();
         const unreadConversationIds = new Set();

@@ -54,11 +54,26 @@
 
 .mail-main { display: flex; min-width: 0; flex: 1; flex-direction: column; }
 .topbar { z-index: 2; display: flex; align-items: center; justify-content: space-between; min-height: 76px; padding: 0 34px; border-bottom: 1px solid var(--line); background: #fff; }
-.search-box { display: flex; align-items: center; gap: 10px; width: min(430px, 47vw); height: 39px; padding: 0 12px; border: 1px solid #e9ece8; border-radius: 8px; color: #89928e; background: #fafbf9; }
+.search-area { position: relative; width: min(430px, 47vw); min-width: 0; flex: 0 1 430px; }
+.search-box { display: flex; align-items: center; gap: 10px; width: 100%; height: 39px; padding: 0 10px 0 12px; border: 1px solid #e9ece8; border-radius: 8px; color: #89928e; background: #fafbf9; }
 .search-box svg { width: 16px; height: 16px; flex: 0 0 16px; }
 .search-box input { width: 100%; min-width: 0; border: 0; outline: 0; color: var(--ink); background: transparent; font: inherit; font-size: 11px; }
 .search-box input::placeholder { color: #a0a8a4; }
 .search-box kbd { display: grid; width: 19px; height: 20px; flex: 0 0 19px; place-items: center; border: 1px solid #e2e6e1; border-radius: 4px; color: #929b97; background: white; font-family: inherit; font-size: 10px; }
+.search-filter-toggle { position: relative; display: grid; width: 29px; height: 29px; flex: 0 0 29px; place-items: center; border: 0; border-radius: 6px; color: #78847d; background: transparent; cursor: pointer; }
+.search-filter-toggle:hover, .search-filter-toggle.has-filters { color: var(--green); background: #eaf3ed; }
+.search-filter-toggle svg { width: 15px; height: 15px; }
+.search-filter-toggle span { position: absolute; top: 0; right: 0; display: grid; width: 13px; height: 13px; place-items: center; border-radius: 50%; color: #fff; background: #175b4d; font-size: 8px; }
+.search-filter-panel { position: absolute; top: 47px; left: 0; z-index: 8; display: grid; width: min(360px, calc(100vw - 32px)); gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 8px; background: #fff; box-shadow: 0 14px 34px #263c321a; }
+.search-filter-panel > label, .search-date-fields label { display: grid; min-width: 0; gap: 5px; color: #5f6c65; font-size: 10px; font-weight: 600; }
+.search-filter-panel input:not([type="checkbox"]) { box-sizing: border-box; width: 100%; height: 34px; min-width: 0; padding: 0 9px; border: 1px solid #e0e7e0; border-radius: 5px; outline: 0; color: var(--ink); background: #fbfcfa; font: inherit; font-size: 10px; font-weight: 400; }
+.search-filter-panel input:focus { border-color: #6aa48b; box-shadow: 0 0 0 2px #e3f0e7; }
+.search-date-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.search-filter-panel .search-filter-check { display: flex; align-items: center; gap: 8px; font-weight: 500; cursor: pointer; }
+.search-filter-check input { width: 14px; height: 14px; margin: 0; accent-color: var(--green); }
+.search-filter-actions { display: flex; justify-content: space-between; padding-top: 5px; border-top: 1px solid #edf0ec; }
+.search-filter-actions button { min-height: 30px; padding: 0 8px; border: 0; border-radius: 5px; color: var(--green); background: transparent; cursor: pointer; font-size: 10px; font-weight: 600; }
+.search-filter-actions button:hover { background: #f0f5f1; }
 .topbar-actions { display: flex; align-items: center; gap: 24px; }
 .connection-status { display: flex; align-items: center; gap: 7px; color: #77817c; font-size: 10px; }
 .connection-status i { width: 6px; height: 6px; border-radius: 50%; background: #66a67b; }
@@ -189,8 +204,10 @@
   .mobile-folder-toggle { display: grid; width: 30px; height: 30px; place-items: center; border: 0; border-radius: 7px; color: #64706c; background: transparent; cursor: pointer; }
   .mobile-folder-toggle:hover { color: var(--green); background: #f0f5f1; }
   .mobile-folder-toggle svg { width: 17px; height: 17px; }
-  .search-box { width: auto; min-width: 0; flex: 1; height: 35px; gap: 7px; padding-inline: 9px; }
+  .search-area { width: auto; flex: 1; }
+  .search-box { min-width: 0; height: 35px; gap: 7px; padding-inline: 9px; }
   .search-box kbd, .profile-name, .profile-button > svg { display: none; }
+  .search-filter-panel { right: -52px; left: auto; }
   .topbar-actions { gap: 0; }
   .mail-content { display: block; position: relative; }
   .conversation-pane { width: 100%; height: 100%; border: 0; }

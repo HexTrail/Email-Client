@@ -59,7 +59,7 @@ PhoneMail is an in-development email client that uses phone numbers as account i
 | Per-user Conversations, Sent, Drafts, Archive, Spam, and Trash folders | Implemented |
 | Per-message read/unread state and bulk archive/read/trash/restore | Implemented |
 | Incoming spam classification | Basic content heuristic; not a replacement for a dedicated spam service |
-| Advanced mail search | Not implemented; search currently filters conversation summaries |
+| Full-message search with sender, recipient, date, unread, and attachment filters | Implemented across mail folders and drafts |
 | Redis caching and end-to-end encryption | Planned; not implemented |
 
 ## Architecture
