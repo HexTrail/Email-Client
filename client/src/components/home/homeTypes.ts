@@ -28,12 +28,18 @@ export type EmailMessage = {
   _id: string;
   from: string;
   to: string[];
+  cc: string[];
+  bcc: string[];
   subject: string;
   text: string;
   html: string;
   date: string;
   folder: MessageFolder;
   read: boolean;
+  messageId: string;
+  inReplyTo: string;
+  replyToId?: string;
+  references: string[];
   attachments: MessageAttachment[];
 };
 
@@ -47,14 +53,17 @@ export type DraftAttachment = {
 export type DraftMessage = {
   _id: string;
   to: string[];
+  cc: string[];
+  bcc: string[];
   subject: string;
   text: string;
   html: string;
   date: string;
+  replyToId?: string;
   attachments: DraftAttachment[];
 };
 
-export type CompositionSeed = Pick<DraftMessage, "to" | "subject" | "text" | "html" | "attachments"> & {
+export type CompositionSeed = Pick<DraftMessage, "to" | "cc" | "bcc" | "subject" | "text" | "html" | "attachments" | "replyToId"> & {
   draftId?: string;
 };
 

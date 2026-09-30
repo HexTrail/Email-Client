@@ -39,6 +39,23 @@ function parseAttachments(value) {
     });
 }
 
+function normalizeRecipientChannels(values) {
+    const seen = new Set();
+    return values.map((value) => {
+        const addresses = Array.isArray(value) ? value : typeof value === 'string' ? value.split(',') : [];
+        return addresses
+            .filter((address) => typeof address === 'string')
+            .map((address) => address.trim())
+            .filter((address) => {
+                if (!address) return false;
+                const normalized = address.toLowerCase();
+                if (seen.has(normalized)) return false;
+                seen.add(normalized);
+                return true;
+            });
+    });
+}
+
 const router = express.Router();
 export function createEmailRouter({
     sendMailMessage = sendMail,
@@ -54,8 +71,13 @@ function getRecipientState(message, phone) {
         : message.recipientState?.[phone];
 }
 
+function getRecipientAddresses(message) {
+    return [...new Set([...(message.to || []), ...(message.cc || []), ...(message.bcc || [])]
+        .map((address) => address.toLowerCase()))];
+}
+
 function getUserFolder(message, phone, address) {
-    if (message.to?.some((recipient) => recipient.toLowerCase() === address)) {
+    if (getRecipientAddresses(message).includes(address)) {
         return getRecipientState(message, phone)?.folder || 'inbox';
     }
     if (message.from?.toLowerCase() === address) {
@@ -75,12 +97,12 @@ function parseFolder(value) {
 }
 
 function ownsMessage(message, address) {
-    return message?.to?.some((recipient) => recipient.toLowerCase() === address)
+    return getRecipientAddresses(message).includes(address)
         || message?.from?.toLowerCase() === address;
 }
 
 function setMessageFolder(message, phone, address, targetFolder) {
-    const ownsRecipientCopy = message.to?.some((recipient) => recipient.toLowerCase() === address);
+    const ownsRecipientCopy = getRecipientAddresses(message).includes(address);
     const ownsSenderCopy = message.from?.toLowerCase() === address;
     if (targetFolder === 'spam' && !ownsRecipientCopy) return false;
 
@@ -104,7 +126,7 @@ function setMessageFolder(message, phone, address, targetFolder) {
 }
 
 function setMessageRead(message, phone, address, read) {
-    if (!message.to?.some((recipient) => recipient.toLowerCase() === address)) return false;
+    if (!getRecipientAddresses(message).includes(address)) return false;
     const currentState = getRecipientState(message, phone) || {};
     const nextState = { ...currentState, read };
     if (typeof message.recipientState?.set === 'function') {
@@ -117,13 +139,12 @@ function setMessageRead(message, phone, address, read) {
 
 //endpoint to send email using smtp server created.
 router.post('/send-email', authMiddleware, async (req, res) => {
-    const { to, subject, text, html, draftId } = req.body;
-    const recipients = (Array.isArray(to) ? to : typeof to === 'string' ? to.split(',') : [])
-        .map((address) => typeof address === 'string' ? address.trim() : '')
-        .filter(Boolean);
+    const { to, cc, bcc, subject, text, html, draftId, replyToId } = req.body;
+    const [recipients, copiedRecipients, blindRecipients] = normalizeRecipientChannels([to, cc, bcc]);
+    const allRecipients = [...new Set([...recipients, ...copiedRecipients, ...blindRecipients].map((address) => address.toLowerCase()))];
     const safeHtml = typeof html === 'string' ? sanitizeEmailHtml(html) : '';
     const plainText = typeof text === 'string' ? text.trim() : '';
-    if (!recipients.length || typeof subject !== 'string' || !subject.trim() || (!plainText && !safeHtml)) {
+    if (!allRecipients.length || typeof subject !== 'string' || !subject.trim() || (!plainText && !safeHtml)) {
         return res.status(400).json({
             success: false,
             message: "Provide at least one recipient, a subject, and message text",
@@ -148,8 +169,17 @@ router.post('/send-email', authMiddleware, async (req, res) => {
             }
         }
 
+        let replySource;
+        const activeReplyToId = replyToId || draft?.repliedTo;
+        if (activeReplyToId) {
+            replySource = await MessageModel.findOne({ _id: activeReplyToId });
+            if (!replySource || !ownsMessage(replySource, from.toLowerCase()) || replySource.senderState?.folder === 'drafts') {
+                return res.status(404).json({ success: false, message: 'Reply source not found' });
+            }
+        }
+
         const domain = (process.env.DOMAIN || 'phonemail.test').trim().toLowerCase();
-        for (const recipient of recipients) {
+        for (const recipient of allRecipients) {
             const separator = recipient.lastIndexOf('@');
             if (separator <= 0 || recipient.slice(separator + 1).toLowerCase() !== domain) continue;
 
@@ -167,11 +197,18 @@ router.post('/send-email', authMiddleware, async (req, res) => {
         await sendMailMessage({
             from,
             to: recipients,
+            cc: copiedRecipients,
+            bcc: blindRecipients,
             subject: subject.trim(),
             text: safeText,
             html: safeHtml,
+            inReplyTo: replySource?.messageId || (replySource ? `<${replySource._id}@${domain}>` : undefined),
+            references: replySource
+                ? [...new Set([...(replySource.references || []), replySource.messageId || `<${replySource._id}@${domain}>`])]
+                : undefined,
             attachments,
         });
+        if (draft && replySource) draft.repliedTo = replySource._id;
         if (draft) await MessageModel.deleteOne({ _id: draft._id });
         return res.status(200).json({ success: true, message: "Email sent successfully" });
     } catch (error) {
@@ -192,6 +229,9 @@ router.get('/drafts', authMiddleware, async (req, res) => {
                 .map((draft) => ({
                     _id: draft._id,
                     to: draft.to || [],
+                    cc: draft.cc || [],
+                    bcc: draft.bcc || [],
+                    replyToId: draft.repliedTo ? String(draft.repliedTo) : undefined,
                     subject: draft.subject || '',
                     text: draft.text || '',
                     html: sanitizeEmailHtml(draft.html || ''),
@@ -212,10 +252,7 @@ router.get('/drafts', authMiddleware, async (req, res) => {
 
 router.post('/drafts', authMiddleware, async (req, res) => {
     const address = getMailboxAddress(req.user.phone);
-    const recipients = (Array.isArray(req.body.to) ? req.body.to : [])
-        .filter((recipient) => typeof recipient === 'string')
-        .map((recipient) => recipient.trim())
-        .filter(Boolean);
+    const [recipients, copiedRecipients, blindRecipients] = normalizeRecipientChannels([req.body.to, req.body.cc, req.body.bcc]);
     const subject = typeof req.body.subject === 'string' ? req.body.subject.slice(0, 998) : '';
     const text = typeof req.body.text === 'string' ? req.body.text : '';
     const html = typeof req.body.html === 'string' ? sanitizeEmailHtml(req.body.html) : '';
@@ -231,6 +268,14 @@ router.post('/drafts', authMiddleware, async (req, res) => {
         if (req.body.draftId && (!draft || draft.from.toLowerCase() !== address.toLowerCase() || draft.senderState?.folder !== 'drafts')) {
             return res.status(404).json({ success: false, message: 'Draft not found' });
         }
+        const replyToId = req.body.replyToId || draft?.repliedTo;
+        let replySource;
+        if (replyToId) {
+            replySource = await MessageModel.findOne({ _id: replyToId });
+            if (!replySource || !ownsMessage(replySource, address.toLowerCase()) || replySource.senderState?.folder === 'drafts') {
+                return res.status(404).json({ success: false, message: 'Reply source not found' });
+            }
+        }
         if (!draft) {
             const conversation = await ConversationModel.create({
                 participants: [req.user.phone],
@@ -240,20 +285,26 @@ router.post('/drafts', authMiddleware, async (req, res) => {
                 conversation: conversation._id,
                 from: address,
                 to: recipients,
+                cc: copiedRecipients,
+                bcc: blindRecipients,
                 subject,
                 text,
                 html,
                 attachments,
                 senderState: { folder: 'drafts' },
+                repliedTo: replySource?._id,
                 date: new Date(),
             });
         } else {
             draft.to = recipients;
+            draft.cc = copiedRecipients;
+            draft.bcc = blindRecipients;
             draft.subject = subject;
             draft.text = text;
             draft.html = html;
             draft.attachments = attachments;
             draft.date = new Date();
+            draft.repliedTo = replySource?._id || null;
             await draft.save();
         }
         return res.status(200).json({ success: true, draftId: String(draft._id) });
@@ -282,8 +333,10 @@ router.get('/emails', authMiddleware, async (req, res) => {
     const address = getMailboxAddress(req.user.phone);
 
     try {
-        const emails = await MessageModel.find({ to: address });
-        return res.status(200).json({ success: true, emails });
+        const emails = await MessageModel.find({ $or: [{ to: address }, { cc: address }, { bcc: address }] });
+        const visibleEmails = emails.filter((message) => getRecipientAddresses(message).includes(address.toLowerCase()))
+            .map((message) => ({ ...message.toObject?.() ?? message, bcc: [] }));
+        return res.status(200).json({ success: true, emails: visibleEmails });
     } catch (error) {
         console.error("[email] failed to fetch emails:", error);
         return res.status(500).json({ success: false, message: "Internal server error" });
@@ -297,15 +350,24 @@ router.get('/conversations', authMiddleware, async (req, res) => {
     const folder = parseFolder(req.query.folder);
 
     try {
-        const mailboxMessages = await MessageModel.find({ $or: [{ to: address }, { from: address }] });
+        const mailboxMessages = await MessageModel.find({ $or: [{ to: address }, { cc: address }, { bcc: address }, { from: address }] });
         const visibleMessages = mailboxMessages.filter((message) => isInFolder(message, phone, address, folder));
         const latestByConversation = new Map();
         const messageIdsByConversation = new Map();
         const unreadConversationIds = new Set();
+        const hiddenBccByConversation = new Map();
+        for (const message of mailboxMessages) {
+            if (message.from?.toLowerCase() !== address) {
+                hiddenBccByConversation.set(String(message.conversation), new Set([
+                    ...(hiddenBccByConversation.get(String(message.conversation)) || []),
+                    ...(message.bcc || []).map((recipient) => recipient.slice(0, recipient.lastIndexOf('@'))),
+                ]));
+            }
+        }
         for (const message of visibleMessages) {
             const conversationId = String(message.conversation);
             messageIdsByConversation.set(conversationId, [...(messageIdsByConversation.get(conversationId) || []), String(message._id)]);
-            if (message.to?.some((recipient) => recipient.toLowerCase() === address)
+            if (getRecipientAddresses(message).includes(address)
                 && getRecipientState(message, phone)?.read !== true) unreadConversationIds.add(conversationId);
             const previous = latestByConversation.get(conversationId);
             if (!previous || new Date(message.date) > new Date(previous.date)) {
@@ -324,7 +386,8 @@ router.get('/conversations', authMiddleware, async (req, res) => {
             const latestMessage = latestByConversation.get(String(conversation._id));
             return {
                 _id: conversation._id,
-                participants: conversation.participants,
+                participants: conversation.participants.filter((participant) =>
+                    participant === phone || !hiddenBccByConversation.get(String(conversation._id))?.has(participant)),
                 isGroup: conversation.isGroup,
                 groupName: conversation.groupName,
                 lastMessageAt: latestMessage.date,
@@ -361,6 +424,11 @@ router.get('/conversations/:conversationId/messages', authMiddleware, async (req
                 _id: message._id,
                 from: message.from,
                 to: message.to,
+                cc: message.cc || [],
+                bcc: message.from?.toLowerCase() === address ? message.bcc || [] : [],
+                replyToId: message.repliedTo ? String(message.repliedTo) : undefined,
+                messageId: message.messageId || '',
+                inReplyTo: message.inReplyTo || '',
                 subject: message.subject,
                 text: message.text,
                 html: sanitizeEmailHtml(message.html || ''),

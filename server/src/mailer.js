@@ -18,29 +18,31 @@ const transporter = nodemailer.createTransport({
 });
 
 /**
- * @param {{from: string, to: string[], cc?: string[], subject: string, text?: string, html?: string, attachments?: Array<{filename: string, contentType?: string, content: Buffer}>}} opts
+ * @param {{from: string, to?: string[], cc?: string[], bcc?: string[], subject: string, text?: string, html?: string, inReplyTo?: string, references?: string[], attachments?: Array<{filename: string, contentType?: string, content: Buffer}>}} opts
  */
 async function sendMail(opts) {
-  const recipients = (Array.isArray(opts.to) ? opts.to : [opts.to])
+  const normalizeAddresses = (addresses) => (Array.isArray(addresses) ? addresses : addresses ? [addresses] : [])
     .filter((address) => typeof address === 'string')
     .map((address) => address.trim())
     .filter(Boolean);
-  const cc = (Array.isArray(opts.cc) ? opts.cc : opts.cc ? [opts.cc] : [])
-    .filter((address) => typeof address === 'string')
-    .map((address) => address.trim())
-    .filter(Boolean);
+  const to = normalizeAddresses(opts.to);
+  const cc = normalizeAddresses(opts.cc);
+  const bcc = normalizeAddresses(opts.bcc);
 
-  if (!recipients.length) {
+  if (!to.length && !cc.length && !bcc.length) {
     throw new Error('At least one recipient is required');
   }
 
   return transporter.sendMail({
     from: opts.from,
-    to: recipients.join(", "),
+    to: to.length ? to.join(", ") : undefined,
     cc: cc.length ? cc.join(", ") : undefined,
+    bcc: bcc.length ? bcc.join(", ") : undefined,
     subject: opts.subject,
     text: opts.text,
     html: opts.html,
+    inReplyTo: opts.inReplyTo,
+    references: opts.references,
     attachments: opts.attachments,
   });
 }

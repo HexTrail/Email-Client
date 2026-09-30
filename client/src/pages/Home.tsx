@@ -134,10 +134,13 @@ function Home() {
       setComposeSeed({
         draftId: draft._id,
         to: draft.to,
+        cc: draft.cc,
+        bcc: draft.bcc,
         subject: draft.subject,
         text: draft.text,
         html: draft.html,
         attachments: draft.attachments,
+        replyToId: draft.replyToId,
       });
       setComposeVersion((version) => version + 1);
       setComposeOpen(true);

@@ -51,7 +51,9 @@ PhoneMail is an in-development email client that uses phone numbers as account i
 | HTTP-only JWT session cookie and protected API routes | Implemented |
 | IVR account creation through a Twilio voice webhook | Implemented |
 | Compose and send formatted mail with attachments to local-domain addresses | Implemented through local SMTP |
-| Reply to and forward messages | Implemented in conversation view |
+| Reply and forward with quoted message context and attachments | Implemented in conversation view |
+| CC/BCC composition, delivery, and BCC recipient redaction | Implemented |
+| RFC-threaded replies with In-Reply-To and References headers | Implemented |
 | Autosaved, editable, and discardable drafts | Implemented |
 | Conversation list, full message history, and message attachments | Implemented |
 | Per-user Conversations, Sent, Drafts, Archive, Spam, and Trash folders | Implemented |

@@ -29,6 +29,10 @@ const MessageSchema = new Schema(
     from: { type: String, required: true }, // full address, e.g. "9876543210@phonemail.test"
     to: { type: [String], required: true }, // full addresses
     cc: { type: [String], default: [] },
+    bcc: { type: [String], default: [] },
+    messageId: { type: String, default: "" },
+    inReplyTo: { type: String, default: "" },
+    references: { type: [String], default: [] },
 
     subject: { type: String, default: "(no subject)" },
     text: { type: String, default: "" },

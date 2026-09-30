@@ -16,6 +16,11 @@ type ConversationDetailProps = {
   onForward: (seed: CompositionSeed) => void;
 };
 
+function getMessageText(message: EmailMessage) {
+  if (message.text) return message.text;
+  return new DOMParser().parseFromString(message.html || "", "text/html").body.textContent || "";
+}
+
 export default function ConversationDetail({
   conversation,
   currentUserPhone,
@@ -125,13 +130,16 @@ export default function ConversationDetail({
       ? message.to.filter((recipient) => recipient.slice(0, recipient.lastIndexOf("@")).toLowerCase() !== ownAddress)
       : [message.from];
     const subject = message.subject.toLowerCase().startsWith("re:") ? message.subject : `Re: ${message.subject}`;
-    const quotedText = (message.text || "").split("\n").map((line) => `> ${line}`).join("\n");
+    const quotedText = getMessageText(message).split("\n").map((line) => `> ${line}`).join("\n");
     onReply({
       to: recipients,
+      cc: [],
+      bcc: [],
       subject,
-      text: `\n\n${formatAddress(message.from)} wrote:\n${quotedText}`,
+      text: `\n\nOn ${new Date(message.date).toLocaleString()}, ${message.from} wrote:\n${quotedText}`,
       html: "",
       attachments: [],
+      replyToId: message._id,
     });
   }
 
@@ -141,10 +149,11 @@ export default function ConversationDetail({
       "---------- Forwarded message ----------",
       `From: ${message.from}`,
       `To: ${message.to.join(", ")}`,
+      ...(message.cc.length ? [`Cc: ${message.cc.join(", ")}`] : []),
       `Date: ${new Date(message.date).toLocaleString()}`,
       `Subject: ${message.subject}`,
       "",
-      message.text,
+      getMessageText(message),
     ].join("\n");
     try {
       const forwardedAttachments = await Promise.all(message.attachments.map(async (attachment) => {
@@ -159,7 +168,7 @@ export default function ConversationDetail({
           content: btoa(binary),
         };
       }));
-      onForward({ to: [], subject, text: `\n\n${details}`, html: "", attachments: forwardedAttachments });
+      onForward({ to: [], cc: [], bcc: [], subject, text: `\n\n${details}`, html: "", attachments: forwardedAttachments });
     } catch {
       setMessageActionError("We couldn't prepare the forwarded attachments.");
     }
@@ -232,7 +241,9 @@ export default function ConversationDetail({
                     <span className="message-avatar">{initials(messageSender)}</span>
                     <div className="message-sender">
                       <strong>{messageSender}</strong>
-                      <span>{isOwnMessage ? `to ${message.to.map(formatAddress).join(", ")}` : "to you"}</span>
+                      <span>{isOwnMessage
+                        ? `to ${message.to.map(formatAddress).join(", ")}${message.cc.length ? ` · cc ${message.cc.map(formatAddress).join(", ")}` : ""}${message.bcc.length ? ` · bcc ${message.bcc.map(formatAddress).join(", ")}` : ""}`
+                        : "to you"}</span>
                     </div>
                     <time>{formatTime(message.date)}</time>
                   </div>

@@ -42,9 +42,12 @@ export function isLikelySpam({ subject = '', text = '', html = '' }) {
   return Number(suspiciousSubject) + Number(suspiciousBody) + Number(linkCount >= 3) >= 2;
 }
 
-async function persistMessage({ from, to, subject, text, html, attachments = [], date }) {
+async function persistMessage({ from, to, cc = [], bcc = [], subject, text, html, messageId, inReplyTo, references = [], attachments = [], date }) {
   const sender = from.toLowerCase();
-  const recipients = to.map((address) => address.toLowerCase());
+  const visibleTo = to.map((address) => address.toLowerCase());
+  const visibleCc = cc.map((address) => address.toLowerCase());
+  const hiddenBcc = bcc.map((address) => address.toLowerCase());
+  const recipients = [...new Set([...visibleTo, ...visibleCc, ...hiddenBcc])];
   const participants = [...new Set([sender, ...recipients].map(phoneFromAddress))].sort();
   const messageDate = date || new Date();
   let conversation;
@@ -66,7 +69,12 @@ async function persistMessage({ from, to, subject, text, html, attachments = [],
   const message = await Message.create({
     conversation: conversation._id,
     from: sender,
-    to: recipients,
+    to: visibleTo,
+    cc: visibleCc,
+    bcc: hiddenBcc,
+    messageId,
+    inReplyTo,
+    references,
     subject,
     text,
     html,
@@ -142,9 +150,13 @@ export function createSmtpServer({
         const envelopeFrom = session.envelope.mailFrom.address;
         const headerSenders = parsed.from?.value || [];
         const from = headerSenders[0]?.address || envelopeFrom;
-        const to = (session.envelope.rcptTo || []).map((recipient) => recipient.address);
+        const envelopeRecipients = (session.envelope.rcptTo || []).map((recipient) => recipient.address);
+        const to = (parsed.to?.value || []).map((recipient) => recipient.address).filter(Boolean);
+        const cc = (parsed.cc?.value || []).map((recipient) => recipient.address).filter(Boolean);
+        const visibleRecipients = new Set([...to, ...cc].map((address) => address.toLowerCase()));
+        const bcc = envelopeRecipients.filter((address) => !visibleRecipients.has(address.toLowerCase()));
         if (
-          !to.length ||
+          !envelopeRecipients.length ||
           !isOurDomain(from, acceptedDomain) ||
           headerSenders.length > 1 ||
           from.toLowerCase() !== envelopeFrom.toLowerCase()
@@ -155,9 +167,14 @@ export function createSmtpServer({
         await deliverMessage({
           from,
           to,
+          cc,
+          bcc,
           subject: parsed.subject || '',
           text: parsed.text || '',
           html: sanitizeEmailHtml(parsed.html || ''),
+          messageId: parsed.messageId || '',
+          inReplyTo: parsed.inReplyTo || '',
+          references: Array.isArray(parsed.references) ? parsed.references : parsed.references ? [parsed.references] : [],
           attachments: parsed.attachments || [],
           date: parsed.date,
         });

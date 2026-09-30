@@ -46,15 +46,15 @@ function formatFileSize(size: number) {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-  function escapeHtml(value: string) {
-    return value.replace(/[&<>"']/g, (character) => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;",
-    })[character] || character);
-  }
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[character] || character);
+}
 
 function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -75,6 +75,8 @@ type ComposeModalProps = {
 
 export default function ComposeModal({ open, seed, onClose, onDiscard, onSent }: ComposeModalProps) {
   const [to, setTo] = useState(seed?.to.join(", ") || "");
+  const [cc, setCc] = useState(seed?.cc.join(", ") || "");
+  const [bcc, setBcc] = useState(seed?.bcc.join(", ") || "");
   const [subject, setSubject] = useState(seed?.subject || "");
   const [text, setText] = useState(seed?.text || "");
   const [html, setHtml] = useState(seed?.html || "");
@@ -83,6 +85,7 @@ export default function ComposeModal({ open, seed, onClose, onDiscard, onSent }:
   const [error, setError] = useState("");
   const [draftStatus, setDraftStatus] = useState(seed?.draftId ? "Draft loaded" : "");
   const [hasSavedDraft, setHasSavedDraft] = useState(Boolean(seed?.draftId));
+  const [replyToId] = useState(seed?.replyToId);
   const [activeFormats, setActiveFormats] = useState<ActiveFormats>({
     bold: false,
     italic: false,
@@ -96,8 +99,8 @@ export default function ComposeModal({ open, seed, onClose, onDiscard, onSent }:
   const draftIdRef = useRef<string | undefined>(seed?.draftId);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
-  const recipientMissingCountryCode = to
-    .split(",")
+  const recipientMissingCountryCode = [to, cc, bcc]
+    .flatMap((value) => value.split(","))
     .map((recipient) => recipient.trim())
     .find(isMissingCountryCode);
 
@@ -115,40 +118,43 @@ export default function ComposeModal({ open, seed, onClose, onDiscard, onSent }:
   }, [initialEditorHtml, open]);
 
   const saveDraft = useCallback(async () => {
-    const hasContent = Boolean(to.trim() || subject.trim() || text.trim() || html.trim() || attachments.length || draftIdRef.current);
+    const hasContent = Boolean(to.trim() || cc.trim() || bcc.trim() || subject.trim() || text.trim() || html.trim() || attachments.length || draftIdRef.current);
     if (!hasContent) return;
-    const recipients = to.split(",").map((address) => address.trim()).filter(Boolean);
+    const parseAddresses = (value: string) => value.split(",").map((address) => address.trim()).filter(Boolean);
     saveQueueRef.current = saveQueueRef.current.catch(() => undefined).then(async () => {
       setDraftStatus("Saving draft...");
       try {
         const response = await axios.post("/api/drafts", {
           draftId: draftIdRef.current,
-          to: recipients,
+          to: parseAddresses(to),
+          cc: parseAddresses(cc),
+          bcc: parseAddresses(bcc),
+          replyToId,
           subject,
           text,
           html,
           attachments,
         }, { withCredentials: true });
         draftIdRef.current = response.data.draftId;
-            setHasSavedDraft(true);
+        setHasSavedDraft(true);
         setDraftStatus("Draft saved");
       } catch {
         setDraftStatus("Draft not saved");
       }
     });
     await saveQueueRef.current;
-  }, [attachments, html, subject, text, to]);
+  }, [attachments, bcc, cc, html, replyToId, subject, text, to]);
 
   useEffect(() => {
     if (!open || sending) return;
-    const hasContent = Boolean(to.trim() || subject.trim() || text.trim() || html.trim() || attachments.length || draftIdRef.current);
+    const hasContent = Boolean(to.trim() || cc.trim() || bcc.trim() || subject.trim() || text.trim() || html.trim() || attachments.length || draftIdRef.current);
     if (!hasContent) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => void saveDraft(), 700);
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
-  }, [attachments, html, open, saveDraft, sending, subject, text, to]);
+  }, [attachments, bcc, cc, html, open, saveDraft, sending, subject, text, to]);
 
   if (!open) return null;
 
@@ -172,24 +178,25 @@ export default function ComposeModal({ open, seed, onClose, onDiscard, onSent }:
       }
     }
     draftIdRef.current = undefined;
-        setHasSavedDraft(false);
-        onDiscard();
+    setHasSavedDraft(false);
+    onDiscard();
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
 
-    const recipients = to
-      .split(",")
-      .map((address) => address.trim())
-      .filter(Boolean);
+    const parseAddresses = (value: string) => value.split(",").map((address) => address.trim()).filter(Boolean);
+    const recipients = parseAddresses(to);
+    const copiedRecipients = parseAddresses(cc);
+    const blindRecipients = parseAddresses(bcc);
+    const hasRecipients = recipients.length + copiedRecipients.length + blindRecipients.length > 0;
 
-    if (!recipients.length) {
+    if (!hasRecipients) {
       setError("Add at least one recipient.");
       return;
     }
-    if (recipients.some(isMissingCountryCode)) {
+    if ([...recipients, ...copiedRecipients, ...blindRecipients].some(isMissingCountryCode)) {
       setError(COUNTRY_CODE_REMINDER);
       return;
     }
@@ -210,10 +217,22 @@ export default function ComposeModal({ open, seed, onClose, onDiscard, onSent }:
     try {
       await axios.post(
         "/api/send-email",
-        { to: recipients, subject: subject.trim(), text: messageText, html: messageHtml, attachments, draftId: draftIdRef.current },
+        {
+          to: recipients,
+          cc: copiedRecipients,
+          bcc: blindRecipients,
+          subject: subject.trim(),
+          text: messageText,
+          html: messageHtml,
+          attachments,
+          draftId: draftIdRef.current,
+          replyToId,
+        },
         { withCredentials: true },
       );
       setTo("");
+      setCc("");
+      setBcc("");
       setSubject("");
       setText("");
       setHtml("");
@@ -298,6 +317,14 @@ export default function ComposeModal({ open, seed, onClose, onDiscard, onSent }:
               </small>
             )}
           </label>
+          <label className="compose-field compose-recipient-field">
+            <span>Cc</span>
+            <input value={cc} onChange={(event) => setCc(event.target.value)} placeholder="Optional copied recipients" autoComplete="email" disabled={sending} />
+          </label>
+          <label className="compose-field compose-recipient-field">
+            <span>Bcc</span>
+            <input value={bcc} onChange={(event) => setBcc(event.target.value)} placeholder="Optional hidden recipients" autoComplete="email" disabled={sending} />
+          </label>
           <label className="compose-field">
             <span>Subject</span>
             <input
@@ -361,7 +388,7 @@ export default function ComposeModal({ open, seed, onClose, onDiscard, onSent }:
           </div>
           {error && <p className="compose-error" role="alert">{error}</p>}
           <div className="compose-actions">
-                  {hasSavedDraft && <button type="button" className="compose-discard" onClick={() => void discardDraft()} disabled={sending}>Discard draft</button>}
+            {hasSavedDraft && <button type="button" className="compose-discard" onClick={() => void discardDraft()} disabled={sending}>Discard draft</button>}
             <span className="draft-status" role="status">{draftStatus}</span>
             <button type="button" className="compose-cancel" onClick={() => void closeAndSave()} disabled={sending}>Save & close</button>
             <button type="submit" className="compose-send" disabled={sending}>
