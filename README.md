@@ -18,7 +18,7 @@ The quickest way to run PhoneMail on Windows is with Docker Compose. Install Git
     notepad server/.env
     ```
 
-    Set `FRONTEND_URI=http://localhost:3000` and a long, unique `JWT_SECRET`. For live IVR calls, set `TWILIO_AUTH_TOKEN` so the backend can verify Twilio's webhook signature. To use phone sign-in and password recovery, also set `TWILIO_ACCOUNT_SID` and `TWILIO_VERIFY_SERVICE_SID`. These values come from your Twilio account. The Compose file supplies MongoDB and SMTP connection settings. The `server/.env` file must exist before Compose starts.
+    Set `FRONTEND_URI=http://localhost:3000` and a long, unique `JWT_SECRET`. For live IVR calls, set `TWILIO_AUTH_TOKEN` so the backend can verify Twilio's webhook signature. To use phone sign-in and password recovery, also set `TWILIO_ACCOUNT_SID` and `TWILIO_VERIFY_SERVICE_SID`. These values come from your Twilio account. During development, set `DEV_OTP_BYPASS=true` to sign in without sending or entering an OTP; set it back to `false` to restore normal verification. After changing the value, apply it with `docker compose up -d backend`. The bypass is ignored when `NODE_ENV=production`. The Compose file supplies MongoDB and SMTP connection settings. The `server/.env` file must exist before Compose starts.
 
 3. Build and start the services:
 
@@ -26,7 +26,7 @@ The quickest way to run PhoneMail on Windows is with Docker Compose. Install Git
     docker compose up --build -d
     ```
 
-4. Open [http://localhost:3000](http://localhost:3000) and sign in or create an account. SMS verification will not work until the Twilio Verify values are configured.
+4. Open [http://localhost:3000](http://localhost:3000) and sign in or create an account. SMS verification requires the Twilio Verify values and, on trial accounts, an allowed recipient number. For local testing without Twilio, use the development-only `DEV_OTP_BYPASS` setting described above.
 
 5. To get the IVR tunnel URL, follow its logs:
 

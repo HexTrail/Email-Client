@@ -31,6 +31,23 @@ const resetPasswordSchema = verifySchema.extend({
         .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character"),
 });
 
+function isDevelopmentOtpBypassEnabled() {
+    return process.env.DEV_OTP_BYPASS === 'true' && process.env.NODE_ENV !== 'production';
+}
+
+function setSessionCookie(res, user) {
+    const token = jwt.sign({
+        phone: user.phone,
+        username: user.username,
+        userid: user._id,
+    }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    res.cookie('token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+    });
+}
+
 export function createAuthRouter({
     UsersModel = Users,
     sendVerification = createVerification,
@@ -69,10 +86,23 @@ router.post('/auth/signin', async (req, res) => {
             }
         }
 
+        if (isDevelopmentOtpBypassEnabled()) {
+            user.phoneVerified = true;
+            await user.save();
+            setSessionCookie(res, user);
+            return res.status(200).json({
+                success: true,
+                message: "Development OTP bypass enabled",
+                otpRequired: false,
+                user: { id: String(user._id), phone: user.phone, username: user.username },
+            });
+        }
+
         await sendVerification(userData.phone);
         return res.status(200).json({
             success: true,
             message: "Verification code sent",
+            otpRequired: true,
             phone: userData.phone,
         });
     } catch (error) {
@@ -167,16 +197,7 @@ router.post('/auth/verify-otp', async (req, res) => {
         user.phoneVerified = true;
         await user.save();
 
-        const token = jwt.sign({
-            phone: user.phone,
-            username: user.username,
-            userid: user._id,
-        }, process.env.JWT_SECRET, { expiresIn: '1h' });
-        res.cookie('token', token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
-        });
+        setSessionCookie(res, user);
         return res.status(200).json({
             success: true,
             message: "OTP verified successfully",

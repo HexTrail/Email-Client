@@ -19,7 +19,7 @@ type User = {
 type AuthContextType = {
   user: User | null;
   loading: boolean;
-  signIn: (phone: string, username: string, password: string) => Promise<void>;
+  signIn: (phone: string, username: string, password: string) => Promise<boolean>;
   pendingPhone: string | null;
   verifyOtp: (otp: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -73,8 +73,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     phone: string,
     username: string,
     password: string
-  ): Promise<void> {
-    await axios.post(
+  ): Promise<boolean> {
+    const response = await axios.post(
       "/api/auth/signin",
       {
         phone,
@@ -84,8 +84,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
       { withCredentials: true }
     );
 
+    if (response.data.otpRequired === false) {
+      setUser(response.data.user);
+      sessionStorage.removeItem("pendingOtpPhone");
+      setPendingPhone(null);
+      return false;
+    }
+
     sessionStorage.setItem("pendingOtpPhone", phone);
     setPendingPhone(phone);
+    return true;
   }
 
   async function verifyOtp(otp: string): Promise<void> {

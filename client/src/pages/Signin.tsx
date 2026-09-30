@@ -51,12 +51,12 @@ function Signin() {
 
     setTermsOpen(false);
     try {
-      await signIn(
+      const otpRequired = await signIn(
         pendingSignIn.phone,
         pendingSignIn.username,
         pendingSignIn.password
       );
-      navigate("/verify");
+      navigate(otpRequired ? "/verify" : "/home");
     } catch (error) {
       console.error(error);
       setError("Could not start verification. Check your details and try again.");

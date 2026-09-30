@@ -104,6 +104,8 @@ The auth route logic in `server/src/routes/auth.js` does the following:
 - triggers Twilio Verify SMS to send a one-time code
 - returns a success message and stores the phone in the client as pending OTP state
 
+For local development only, `DEV_OTP_BYPASS=true` skips SMS delivery and OTP entry during sign-in, marks the account phone as verified, and issues the normal session cookie. The backend ignores this flag when `NODE_ENV=production`. Keep it disabled outside local development; password recovery continues to require Twilio Verify.
+
 ### OTP verification flow
 
 The client stores the phone number in `sessionStorage` while waiting for OTP,
