@@ -3,11 +3,18 @@
 import { useState } from "react";
 import PhonemailLogo from "../components/PhonemailLogo.tsx";
 import PhoneNumberField from "../components/PhoneNumberField.tsx";
+import TermsModal from "../components/TermsModal.tsx";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../Context/AuthContext.tsx";
 import "./AuthPages.css";
 
 function Signin() {
+  const [termsOpen, setTermsOpen] = useState(false);
+  const [pendingSignIn, setPendingSignIn] = useState<{
+    phone: string;
+    username: string;
+    password: string;
+  } | null>(null);
   const [countryCode, setCountryCode] = useState("+91");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
@@ -35,12 +42,26 @@ function Signin() {
       setError("Username must have at least 3 characters.");
       return;
     }
+    setPendingSignIn({ phone, username, password });
+    setTermsOpen(true);
+  }
+
+  async function agreeToTerms() {
+    if (!pendingSignIn) return;
+
+    setTermsOpen(false);
     try {
-      await signIn(phone, username, password);
+      await signIn(
+        pendingSignIn.phone,
+        pendingSignIn.username,
+        pendingSignIn.password
+      );
       navigate("/verify");
     } catch (error) {
       console.error(error);
       setError("Could not start verification. Check your details and try again.");
+    } finally {
+      setPendingSignIn(null);
     }
   }
   return (
@@ -97,6 +118,15 @@ function Signin() {
         </form>
         <p className="auth-recovery-link"><Link to="/forgot-password">Forgot password?</Link></p>
       </section>
+      {termsOpen && (
+        <TermsModal
+          onAgree={agreeToTerms}
+          onClose={() => {
+            setTermsOpen(false);
+            setPendingSignIn(null);
+          }}
+        />
+      )}
     </main>
   );
 }
