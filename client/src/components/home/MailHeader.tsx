@@ -1,6 +1,6 @@
 // Renders the inbox header with search and account controls.
 // Renders the inbox header with search and account controls.
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FiMenu, FiMoreHorizontal, FiSearch, FiSliders, FiX } from "react-icons/fi";
 import PhonemailLogo from "../PhonemailLogo.tsx";
 import type { SearchFilters } from "./homeTypes.ts";
@@ -35,6 +35,8 @@ export default function MailHeader({
 }: MailHeaderProps) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const searchAreaRef = useRef<HTMLDivElement>(null);
+  const profileWrapRef = useRef<HTMLDivElement>(null);
   const displayName = username || "Your account";
   const activeFilterCount = Number(Boolean(searchFilters.from || searchFilters.to || searchFilters.after || searchFilters.before))
     + Number(searchFilters.unread) + Number(searchFilters.hasAttachment);
@@ -42,6 +44,22 @@ export default function MailHeader({
   function updateFilter<K extends keyof SearchFilters>(key: K, value: SearchFilters[K]) {
     onSearchFiltersChange({ ...searchFilters, [key]: value });
   }
+
+  useEffect(() => {
+    function closeOutsidePanels(event: Event) {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (!searchAreaRef.current?.contains(target)) setFiltersOpen(false);
+      if (!profileWrapRef.current?.contains(target)) setProfileOpen(false);
+    }
+
+    document.addEventListener("pointerdown", closeOutsidePanels);
+    document.addEventListener("focusin", closeOutsidePanels);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutsidePanels);
+      document.removeEventListener("focusin", closeOutsidePanels);
+    };
+  }, []);
 
   return (
     <header className="topbar">
@@ -56,7 +74,7 @@ export default function MailHeader({
           {mobileFoldersOpen ? <FiX /> : <FiMenu />}
         </button>
       </div>
-      <div className="search-area">
+      <div className="search-area" ref={searchAreaRef}>
         <div className="search-box">
           <FiSearch aria-hidden="true" />
           <input
@@ -92,7 +110,7 @@ export default function MailHeader({
         <span className={`connection-status${loadError ? " has-error" : ""}`}>
           <i /> {loading ? "Connecting" : loadError ? "Connection issue" : "Connected"}
         </span>
-        <div className="profile-wrap">
+        <div className="profile-wrap" ref={profileWrapRef}>
           <button
             className="profile-button"
             onClick={() => setProfileOpen(!profileOpen)}

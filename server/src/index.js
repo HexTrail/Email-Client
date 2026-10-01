@@ -9,6 +9,7 @@ import authRoutes from "./routes/auth.js";
 import emailRoutes from './routes/email.js';
 import voiceRoutes from './routes/voice.js';
 import smtpServer from './smtp-server.js';
+import { seedDemoData } from './seedDemoData.js';
 
 const app = express();
 const PORT = Number(process.env.PORT || process.env.API_PORT || 5000);
@@ -76,6 +77,15 @@ function startSmtpServer() {
 async function startServer() {
   try {
     await connectWithRetry();
+    if (process.env.SEED_DEMO_DATA === 'true' && process.env.NODE_ENV !== 'production') {
+      try {
+        await seedDemoData({ connect: false, disconnect: false });
+      } catch (error) {
+        console.error('[demo] Seeding failed; starting without demo data:', error.message);
+      }
+    } else if (process.env.SEED_DEMO_DATA === 'true') {
+      console.warn('[demo] Seeding is disabled in production.');
+    }
     await startSmtpServer();
     app.listen(PORT, () => {
       console.log(`Express API server running on port ${PORT}`);

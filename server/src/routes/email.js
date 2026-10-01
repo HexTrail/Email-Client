@@ -145,13 +145,14 @@ function setMessageFolder(message, phone, address, targetFolder) {
     if (targetFolder === 'spam' && !ownsRecipientCopy) return false;
 
     if (ownsRecipientCopy) {
-        const currentState = getRecipientState(message, phone) || {};
+        const currentState = getRecipientState(message, phone);
         const folder = targetFolder === 'restore' ? 'inbox' : targetFolder;
-        const nextState = { ...currentState, folder };
-        if (typeof message.recipientState?.set === 'function') {
-            message.recipientState.set(phone, nextState);
+        if (currentState) {
+            currentState.folder = folder;
+        } else if (typeof message.recipientState?.set === 'function') {
+            message.recipientState.set(phone, { folder });
         } else {
-            message.recipientState = { ...message.recipientState, [phone]: nextState };
+            message.recipientState = { ...message.recipientState, [phone]: { folder } };
         }
     }
     if (ownsSenderCopy && !ownsRecipientCopy) {
@@ -165,12 +166,13 @@ function setMessageFolder(message, phone, address, targetFolder) {
 
 function setMessageRead(message, phone, address, read) {
     if (!getRecipientAddresses(message).includes(address)) return false;
-    const currentState = getRecipientState(message, phone) || {};
-    const nextState = { ...currentState, read };
-    if (typeof message.recipientState?.set === 'function') {
-        message.recipientState.set(phone, nextState);
+    const currentState = getRecipientState(message, phone);
+    if (currentState) {
+        currentState.read = read;
+    } else if (typeof message.recipientState?.set === 'function') {
+        message.recipientState.set(phone, { read });
     } else {
-        message.recipientState = { ...message.recipientState, [phone]: nextState };
+        message.recipientState = { ...message.recipientState, [phone]: { read } };
     }
     return true;
 }
